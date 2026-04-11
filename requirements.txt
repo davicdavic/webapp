@@ -51,7 +51,7 @@ msgspec==0.20.0
 multidict==6.7.1
 packaging==26.0
 parsimonious==0.10.0
-Pillow==10.1.0
+pillow==10.4.0
 propcache==0.4.1
 protobuf==7.34.1
 psycopg2-binary==2.9.9
