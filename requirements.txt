@@ -1,45 +1,90 @@
-# Flask Application Dependencies
-# RetroQuest Platform - Production Requirements
-
-# Web Framework
-Flask==3.0.0
-Flask-SQLAlchemy==3.1.1
-Flask-Migrate==4.0.5
-Flask-Login==0.6.3
-Flask-WTF==1.2.1
-Flask-Cors==4.0.0
-
-# Database
-SQLAlchemy==2.0.23
-psycopg2-binary==2.9.9
+aiohappyeyeballs==2.6.1
+aiohttp==3.13.5
+aiosignal==1.4.0
 alembic==1.13.0
-
-# Security
+annotated-types==0.7.0
+APScheduler==3.10.4
+attrs==26.1.0
 bcrypt==4.1.2
-WTForms==3.1.1
+bitarray==3.8.1
+blinker==1.9.0
+brotli==1.2.0
+cachelib==0.9.0
+certifi==2026.2.25
+charset-normalizer==3.4.7
+ckzg==1.0.2
+click==8.3.2
+cytoolz==1.1.0
+dnspython==2.8.0
 email-validator==2.1.0
-
-# Blockchain
-web3==6.11.3
-
-# Image Processing
-Pillow==10.1.0
-qrcode==7.4.2
-
-# Server
-gunicorn==21.2.0
-waitress==2.1.2
-gevent==23.9.1
-
-# Performance & Caching
+eth-account==0.11.3
+eth-hash==0.8.0
+eth-keyfile==0.9.1
+eth-keys==0.7.0
+eth-rlp==1.0.1
+eth-typing==6.0.0
+eth-utils==6.0.0
+eth_abi==5.2.0
+Flask==3.0.0
+Flask-Bcrypt==1.0.1
 Flask-Caching==2.1.0
 Flask-Compress==1.14
+Flask-Cors==4.0.0
+Flask-Login==0.6.3
+Flask-Migrate==4.0.5
 Flask-Session==0.8.0
-redis==5.0.1
-
-# Background Tasks
-APScheduler==3.10.4
-
-# Utilities
+Flask-SQLAlchemy==3.1.1
+Flask-WTF==1.2.1
+frozenlist==1.8.0
+gevent==23.9.1
+greenlet==3.3.2
+gunicorn==21.2.0
+hexbytes==0.3.1
+idna==3.11
+itsdangerous==2.2.0
+Jinja2==3.1.6
+jsonschema==4.26.0
+jsonschema-specifications==2025.9.1
+lru-dict==1.2.0
+Mako==1.3.10
+MarkupSafe==3.0.3
+msgspec==0.20.0
+multidict==6.7.1
+packaging==26.0
+parsimonious==0.10.0
+Pillow==10.1.0
+propcache==0.4.1
+protobuf==7.34.1
+psycopg2-binary==2.9.9
+py-ecc==8.0.0
+pycryptodome==3.23.0
+pydantic==2.12.5
+pydantic_core==2.41.5
+pypng==0.20220715.0
 python-dotenv==1.0.0
+pytz==2026.1.post1
+pyunormalize==17.0.0
+qrcode==7.4.2
+redis==5.0.1
+referencing==0.37.0
+regex==2026.4.4
 requests==2.31.0
+rlp==4.1.0
+rpds-py==0.30.0
+setuptools==68.0.0
+six==1.17.0
+SQLAlchemy==2.0.23
+toolz==1.1.0
+typing-inspection==0.4.2
+typing_extensions==4.15.0
+tzlocal==5.3.1
+urllib3==2.6.3
+waitress==2.1.2
+web3==6.11.3
+websockets==16.0
+Werkzeug==3.1.8
+wheel==0.46.3
+WTForms==3.1.1
+yarl==1.23.0
+zope.event==6.1
+zope.interface==8.2
