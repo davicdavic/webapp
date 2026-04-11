@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}{{ seller.username }} - Seller Profile{% endblock %}
+
+{% block content %}
+<div class="px-mb-lg">
+    <a href="{{ url_for('merch.index') }}" class="px-btn px-btn-secondary">Back to Store</a>
+</div>
+
+<div class="px-panel px-mb-lg">
+    <div class="px-panel-header">
+        <h1 style="margin: 0;">{{ seller.username }}</h1>
+        <span class="px-badge px-badge-user">Seller</span>
+    </div>
+    <div class="px-info-group">
+        <label>Rating</label>
+        {% set stars = avg_rating|round(0, 'common')|int %}
+        <p>
+            {% for i in range(1, 6) %}
+                {% if i <= stars %}★{% else %}☆{% endif %}
+            {% endfor %}
+            ({{ rating_count }})
+        </p>
+    </div>
+    <div class="px-info-group">
+        <label>Total Sales</label>
+        <p><span class="px-coin"></span> {{ total_sales|format_number }}</p>
+    </div>
+</div>
+
+<div class="px-panel">
+    <div class="px-panel-header">
+        <h2 class="px-panel-title">Rate This Seller</h2>
+    </div>
+    {% if seller.id == current_user.id %}
+        <p class="px-text-muted">You cannot rate yourself.</p>
+    {% else %}
+        <form method="POST" action="{{ url_for('merch.rate_seller', seller_id=seller.id) }}">
+            <div class="px-form-group">
+                <label class="px-form-label">Your Rating</label>
+                <div class="px-flex px-gap-sm px-items-center">
+                    {% for r in range(1, 6) %}
+                    <label class="px-flex px-gap-sm px-items-center">
+                        <input type="radio" name="rating" value="{{ r }}" {% if user_rating == r %}checked{% endif %}>
+                        <span>{{ r }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+            <button type="submit" class="px-btn px-btn-primary">Submit Rating</button>
+        </form>
+    {% endif %}
+</div>
+
+<div class="px-panel px-mt-lg">
+    <div class="px-panel-header">
+        <h2 class="px-panel-title">Report Seller</h2>
+    </div>
+    {% if seller.id == current_user.id %}
+        <p class="px-text-muted">You cannot report yourself.</p>
+    {% else %}
+        <form method="POST" action="{{ url_for('merch.report_seller', seller_id=seller.id) }}" enctype="multipart/form-data">
+            <div class="px-form-group">
+                <label class="px-form-label">Message</label>
+                <textarea name="message" class="px-input" rows="4" required></textarea>
+            </div>
+            <div class="px-form-group">
+                <label class="px-form-label">Evidence (optional image)</label>
+                <input type="file" name="evidence" class="px-input" accept="image/*">
+            </div>
+            <button type="submit" class="px-btn px-btn-danger">Submit Report</button>
+        </form>
+    {% endif %}
+</div>
+
+<div class="px-panel px-mt-lg">
+    <div class="px-panel-header">
+        <h2 class="px-panel-title">Products</h2>
+    </div>
+    {% if products %}
+    <div class="px-grid" style="grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px;">
+        {% for product in products %}
+        <div class="px-card">
+            <div style="margin-bottom: 10px;">
+                {% if product.image_filename %}
+                <img src="{{ url_for('static', filename='uploads/merch/' + product.image_filename) }}"
+                     alt="{{ product.name }}"
+                     style="width: 100%; height: 120px; object-fit: cover; border: 2px solid var(--px-border);">
+                {% else %}
+                <div style="height: 120px; background: var(--px-bg-dark); border: 2px solid var(--px-border); display: flex; align-items: center; justify-content: center;">
+                    <span style="font-size: 2rem;">*</span>
+                </div>
+                {% endif %}
+            </div>
+            <div style="font-family: 'Press Start 2P', cursive; font-size: 0.55rem; margin-bottom: 6px;">
+                {{ product.name }}
+            </div>
+            <div class="px-text-sm px-text-muted" style="margin-bottom: 8px;">
+                {{ (product.description or '')[:60] }}{% if product.description and product.description|length > 60 %}...{% endif %}
+            </div>
+            <div class="px-flex px-justify-between px-items-center">
+                <span class="px-text-sm"><span class="px-coin"></span> {{ product.price }}</span>
+                <a href="{{ url_for('merch.product_detail', product_id=product.id) }}" class="px-btn px-btn-sm px-btn-secondary">View</a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="px-text-muted">No active products from this seller.</p>
+    {% endif %}
+</div>
+{% endblock %}

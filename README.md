@@ -1,0 +1,201 @@
+# RetroQuest Platform
+
+A professional production-level Flask application with pixel art UI, cryptocurrency deposits, missions system, social feed, and gaming platform.
+
+## Features
+
+- **User Authentication**: Secure signup/login with bcrypt password hashing
+- **Missions System**: Complete tasks and earn coins
+- **Social Feed**: Post, like, and comment on community posts
+- **Cryptocurrency Deposits**: USDT deposits via BNB Chain (BEP-20)
+- **Blockchain Auto-checker**: Automatic verification of deposits
+- **Work Requests & Service Orders**: Multiple income streams
+- **Withdrawal System**: Convert coins to USDT
+- **Game Center**: Emperor's Circle card game with leaderboard
+- **Admin Panel**: Full system management
+- **Pixel Art UI**: Retro game dashboard style
+
+## Project Structure
+
+```
+project/
+├── app/
+│   ├── __init__.py          # Flask app factory
+│   ├── config.py            # Configuration
+│   ├── extensions.py        # Flask extensions
+│   ├── models.py            # SQLAlchemy models
+│   ├── utils.py             # Utility functions
+│   ├── routes/              # Blueprints
+│   │   ├── auth.py
+│   │   ├── missions.py
+│   │   ├── deposit.py
+│   │   ├── feed.py
+│   │   ├── admin.py
+│   │   ├── profile.py
+│   │   ├── work.py
+│   │   ├── api.py
+│   │   └── game.py
+│   ├── services/            # Business logic
+│   │   ├── blockchain_service.py
+│   │   ├── mission_service.py
+│   │   ├── deposit_service.py
+│   │   └── user_service.py
+│   ├── templates/           # Jinja2 templates
+│   └── static/
+│       └── css/
+│           └── pixel-ui.css # Pixel art UI
+├── migrations/              # Flask-Migrate
+├── instance/               # SQLite database
+├── run.py                  # Entry point
+├── requirements.txt        # Dependencies
+├── Dockerfile              # Docker config
+├── gunicorn.conf.py        # Gunicorn config
+├── migrate.py              # Data migration
+└── .env.example           # Environment config
+```
+
+## Installation
+
+### 1. Clone and Setup
+
+```bash
+# Navigate to project directory
+cd /path/to/project
+
+# Create virtual environment
+python -m venv venv
+
+# Activate virtual environment
+# Windows:
+venv\Scripts\activate
+# Linux/Mac:
+source venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
+```
+
+### 2. Configuration
+
+```bash
+# Copy environment file
+cp .env.example .env
+
+# Edit .env with your settings
+# Important: Change SECRET_KEY and ADMIN_PASS
+```
+
+### 3. Database Setup
+
+```bash
+# Initialize database (creates SQLite file)
+python run.py
+
+# OR migrate from old database
+python migrate.py system.db
+```
+
+### 4. Run Development Server
+
+```bash
+python run.py
+```
+
+Visit `http://localhost:5000` in your browser.
+
+## Deployment
+
+### Production Stack (Recommended for High Concurrency)
+
+Use:
+- PostgreSQL (not SQLite)
+- Redis (cache + sessions + shared game state)
+- Gunicorn web workers
+- Dedicated background worker
+- Nginx reverse proxy
+
+This repo includes:
+- `docker-compose.prod.yml`
+- `deploy/nginx.conf`
+- `worker.py`
+
+Start the stack:
+
+```bash
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+Initialize schema once:
+
+```bash
+docker compose -f docker-compose.prod.yml run --rm web python init_db.py
+```
+
+Scale web app instances:
+
+```bash
+docker compose -f docker-compose.prod.yml up -d --scale web=6
+```
+
+Important:
+- Set strong secrets (`SECRET_KEY`, DB password).
+- Run with `FLASK_ENV=production`.
+- Keep `START_BLOCKCHAIN_CHECKER=0` for web containers and `1` only on worker.
+- Keep `AUTO_CREATE_SCHEMA_ON_START=0` in production.
+
+### Gunicorn Only (Single Host)
+
+```bash
+gunicorn --config gunicorn.conf.py run:app
+```
+
+## Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| FLASK_ENV | Environment | development |
+| SECRET_KEY | Secret key for sessions | (change in production) |
+| DATABASE_URL | Database connection string | sqlite:///instance/database.db |
+| REDIS_URL | Redis connection string | redis://localhost:6379/0 |
+| ENABLE_SERVER_SIDE_SESSIONS | Use Redis-backed Flask sessions | 0 |
+| SESSION_REDIS_URL | Redis session DB | redis://localhost:6379/1 |
+| GAME_STATE_BACKEND | Emperor's Circle state backend (`memory`/`redis`) | memory |
+| START_BLOCKCHAIN_CHECKER | Start deposit checker thread in this process | 1 |
+| AUTO_CREATE_SCHEMA_ON_START | Run `db.create_all()` on app boot | 1 |
+| ADMIN_USER | Admin username | admin |
+| ADMIN_PASS | Admin password | (change in production) |
+| BSC_RPC | BNB Chain RPC URL | https://bsc-dataseed.binance.org/ |
+| WALLET_ADDRESS | Deposit wallet address | (your wallet) |
+| USDT_CONTRACT | USDT token contract | (BEP-20 USDT) |
+| USDT_TO_POINTS | Conversion rate | 4000 |
+
+## API Endpoints
+
+- `GET /api/user` - Get current user
+- `GET /api/missions` - List missions
+- `POST /api/missions/<id>/submit` - Submit mission
+- `GET /api/feed` - Get social feed
+- `POST /api/feed` - Create post
+- `GET /api/leaderboard` - Get coin leaderboard
+- `POST /api/game/score` - Save game score
+
+## Game Integration
+
+The Emperor's Circle game uses Socket.io for real-time multiplayer. To enable:
+
+1. Set up a separate Node.js server with Socket.io
+2. Configure the game client to connect to the game server
+3. Use the `/api/game/score` endpoint to save scores
+
+## Security Features
+
+- Bcrypt password hashing
+- CSRF protection
+- Secure file uploads
+- SQL injection prevention (via SQLAlchemy)
+- Session security
+- Input validation
+
+## License
+
+MIT License

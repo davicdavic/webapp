@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+
+{% block title %}Missions - RetroQuest{% endblock %}
+
+{% block content %}
+<div class="px-flex px-justify-between px-items-center px-mb-lg">
+    <h1>Available Missions</h1>
+    <div class="px-flex px-gap-md">
+        <a href="{{ url_for('missions.my_submissions') }}" class="px-btn px-btn-secondary">
+            My Submissions
+        </a>
+        {% if current_user.is_admin() %}
+        <a href="{{ url_for('missions.create') }}" class="px-btn px-btn-primary">
+            Create Mission
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- User Stats -->
+<div class="px-stats-grid px-stats-compact">
+    <div class="px-stat-card">
+        <div class="px-stat-value">{{ stats.completed|default(0) }}</div>
+        <div class="px-stat-label">Completed</div>
+    </div>
+    <div class="px-stat-card">
+        <div class="px-stat-value">{{ stats.pending|default(0) }}</div>
+        <div class="px-stat-label">Pending</div>
+    </div>
+    <div class="px-stat-card">
+        <div class="px-stat-value">{{ missions|length }}</div>
+        <div class="px-stat-label">Available</div>
+    </div>
+</div>
+
+<style>
+.px-stats-compact {
+    grid-template-columns: repeat(3, minmax(140px, 1fr));
+    gap: 12px;
+}
+
+.px-stats-compact .px-stat-card {
+    padding: 12px 10px;
+    border-width: 1px;
+    background: #f6f8ff;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+}
+
+.px-stats-compact .px-stat-value {
+    font-size: 0.9rem;
+    margin-bottom: 6px;
+}
+
+.px-stats-compact .px-stat-label {
+    font-size: 0.45rem;
+    letter-spacing: 0.6px;
+}
+
+@media (max-width: 768px) {
+    .px-stats-compact {
+        grid-template-columns: repeat(3, minmax(100px, 1fr));
+        gap: 10px;
+    }
+}
+
+@media (max-width: 420px) {
+    .px-stats-compact {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+    }
+    .px-stats-compact .px-stat-card {
+        padding: 10px 8px;
+    }
+    .px-stats-compact .px-stat-value {
+        font-size: 0.8rem;
+    }
+}
+</style>
+
+<!-- Missions List -->
+{% if missions %}
+<div class="px-grid px-grid-2">
+    {% for mission in missions %}
+    <div class="px-mission-card">
+        <div class="px-mission-reward">
+            <span class="px-coin"></span>
+            {{ mission.reward }}
+        </div>
+        
+        <h3 class="px-mission-title">{{ mission.title }}</h3>
+        {% set is_telegram = 'telegram' in (mission.instructions or '')|lower %}
+        <div class="px-mission-desc {% if is_telegram %}px-highlight-gold-lite{% endif %}">
+            {{ mission.instructions }}
+        </div>
+        
+        <div class="px-mission-meta">
+            <span>⏱️ {{ mission.time_limit }}h</span>
+            <span>📋 {% if mission.limit_count > 0 %}{{ mission.limit_count }} max{% else %}Unlimited{% endif %}</span>
+        </div>
+        
+        <div class="px-mt-md">
+            {% set my_sub = submission_by_mission.get(mission.id) %}
+            {% if my_sub %}
+            <span class="px-status px-status-{{ my_sub.status }}">
+                {{ my_sub.status|title }}
+            </span>
+            {% endif %}
+            {% if not my_sub %}
+            <a href="{{ url_for('missions.view', mission_id=mission.id) }}" class="px-btn px-btn-primary px-btn-sm">
+                Start Mission
+            </a>
+            {% elif my_sub.status == 'completed' %}
+            <a href="{{ url_for('missions.view', mission_id=mission.id) }}" class="px-btn px-btn-primary px-btn-sm">
+                Start Mission
+            </a>
+            {% elif my_sub.status == 'rejected' %}
+            <a href="{{ url_for('missions.view', mission_id=mission.id) }}" class="px-btn px-btn-primary px-btn-sm">
+                Submit Again
+            </a>
+            {% elif my_sub.status == 'pending' %}
+            <a href="{{ url_for('missions.view', mission_id=mission.id) }}" class="px-btn px-btn-secondary px-btn-sm">
+                View Submission
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="px-panel px-text-center">
+    <p class="px-text-muted">No missions available at the moment. Check back later!</p>
+</div>
+{% endif %}
+
+<!-- Recent Submissions -->
+{% if recent_submissions %}
+<div class="px-panel px-mt-lg">
+    <div class="px-panel-header">
+        <h2 class="px-panel-title">Recent Submissions</h2>
+    </div>
+    
+    <table class="px-table">
+        <thead>
+            <tr>
+                <th>Mission</th>
+                <th>Status</th>
+                <th>Submitted</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for sub in recent_submissions %}
+            <tr>
+                <td>{{ sub.mission_title }}</td>
+                <td>
+                    <span class="px-status px-status-{{ sub.status }}">
+                        {{ sub.status|title }}
+                    </span>
+                </td>
+                <td>{{ sub.submission_time.strftime('%Y-%m-%d %H:%M') if sub.submission_time else 'N/A' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endblock %}

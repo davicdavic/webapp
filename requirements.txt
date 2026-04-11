@@ -1,0 +1,45 @@
+# Flask Application Dependencies
+# RetroQuest Platform - Production Requirements
+
+# Web Framework
+Flask==3.0.0
+Flask-SQLAlchemy==3.1.1
+Flask-Migrate==4.0.5
+Flask-Login==0.6.3
+Flask-WTF==1.2.1
+Flask-Cors==4.0.0
+
+# Database
+SQLAlchemy==2.0.23
+psycopg2-binary==2.9.9
+alembic==1.13.0
+
+# Security
+bcrypt==4.1.2
+WTForms==3.1.1
+email-validator==2.1.0
+
+# Blockchain
+web3==6.11.3
+
+# Image Processing
+Pillow==10.1.0
+qrcode==7.4.2
+
+# Server
+gunicorn==21.2.0
+waitress==2.1.2
+gevent==23.9.1
+
+# Performance & Caching
+Flask-Caching==2.1.0
+Flask-Compress==1.14
+Flask-Session==0.8.0
+redis==5.0.1
+
+# Background Tasks
+APScheduler==3.10.4
+
+# Utilities
+python-dotenv==1.0.0
+requests==2.31.0

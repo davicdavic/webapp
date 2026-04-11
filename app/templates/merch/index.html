@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+
+{% block title %}Merch Store - RetroQuest{% endblock %}
+
+{% block content %}
+<div class="px-mb-lg">
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;" class="px-mb-lg">
+        <h1 style="margin: 0;">Merch Store</h1>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <a href="{{ url_for('merch.index', search=search) }}" class="px-btn {% if request.args.get('type') == None %}px-btn-primary{% else %}px-btn-secondary{% endif %}">
+                All
+            </a>
+            <a href="{{ url_for('merch.index', type='digital', search=search) }}" class="px-btn {% if request.args.get('type') == 'digital' %}px-btn-primary{% else %}px-btn-secondary{% endif %}">
+                Digital
+            </a>
+            <a href="{{ url_for('merch.index', type='physical', search=search) }}" class="px-btn {% if request.args.get('type') == 'physical' %}px-btn-primary{% else %}px-btn-secondary{% endif %}">
+                Physical
+            </a>
+        </div>
+    </div>
+    
+    <!-- Search Bar -->
+    <div class="px-panel px-mb-lg" style="padding: 20px;">
+        <form method="GET" style="display: flex; gap: 10px; align-items: center;">
+            {% if request.args.get('type') %}
+            <input type="hidden" name="type" value="{{ request.args.get('type') }}">
+            {% endif %}
+            <input type="text" name="search" value="{{ search }}" placeholder="Search products by name..." 
+                   class="px-input" style="flex: 1; margin: 0;">
+            <button type="submit" class="px-btn px-btn-primary">Search</button>
+            {% if search %}
+            <a href="{{ url_for('merch.index', type=request.args.get('type')) }}" class="px-btn px-btn-secondary">Clear</a>
+            {% endif %}
+        </form>
+    </div>
+    
+    {% if products %}
+    <div class="px-grid merch-grid">
+        {% for product in products %}
+        <div class="px-panel">
+            {% if product.image_filename %}
+            <div class="merch-card-image">
+                <img src="{{ url_for('static', filename='uploads/merch/' + product.image_filename) }}" 
+                     alt="{{ product.name }}" 
+                     class="merch-card-image-img">
+            </div>
+            {% else %}
+            <div class="merch-card-image merch-card-image--placeholder">
+                <span style="font-size: 4rem;">🎁</span>
+            </div>
+            {% endif %}
+            
+            <h3 style="font-family: 'Press Start 2P', cursive; font-size: 0.7rem; margin-bottom: 8px; color: var(--px-gold);">
+                {{ product.name }}
+            </h3>
+            
+            <p class="px-text-sm px-text-muted" style="margin-bottom: 12px; min-height: 40px; overflow: hidden;">
+                {{ (product.description or '')[:80] }}{% if product.description and product.description|length > 80 %}...{% endif %}
+            </p>
+
+            <div class="px-text-sm px-text-muted" style="margin-bottom: 8px;">
+                Type: <strong>{{ (product.product_type or 'digital')|title }}</strong>
+            </div>
+            
+            <div class="px-text-sm px-text-muted" style="margin-bottom: 12px;">
+                {% if product.seller %}
+                    <span>Sold by:</span>
+                    <a href="{{ url_for('merch.seller_profile', seller_id=product.seller_id) }}"><strong>{{ product.seller.username }}</strong></a>
+                    {% set rating = seller_ratings.get(product.seller_id) if seller_ratings else None %}
+                    {% if rating %}
+                        {% set stars = rating.avg|round(0, 'common')|int %}
+                        <span>• Rating:
+                            {% for i in range(1, 6) %}
+                                {% if i <= stars %}★{% else %}☆{% endif %}
+                            {% endfor %}
+                            ({{ rating.count }})
+                        </span>
+                    {% endif %}
+                {% else %}
+                    Sold by: <strong>Admin</strong>
+                {% endif %}
+            </div>
+            
+            <div class="merch-card-meta">
+                <div class="merch-card-price">
+                    🪙 {{ product.price }}
+                </div>
+                <div class="merch-card-stock">
+                    {% if product.quantity > 5 %}
+                    <span class="px-status px-status-success merch-stock-badge">{{ product.quantity }} available</span>
+                    {% elif product.quantity > 0 %}
+                    <span class="px-status px-status-warning merch-stock-badge">Only {{ product.quantity }} left!</span>
+                    {% else %}
+                    <span class="px-status px-status-default merch-stock-badge">Sold Out</span>
+                    {% endif %}
+                </div>
+            </div>
+            
+            {% if product.quantity > 0 %}
+            <a href="{{ url_for('merch.product_detail', product_id=product.id) }}" 
+               class="btn btn-primary" 
+               style="width: 100%; text-align: center;">
+                Buy Now
+            </a>
+            {% else %}
+            <button class="btn" disabled style="width: 100%; opacity: 0.5; cursor: not-allowed;">
+                Sold Out
+            </button>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="px-panel" style="text-align: center; padding: 60px 20px;">
+        <div style="font-size: 4rem; margin-bottom: 20px;">🎁</div>
+        <h2 style="font-family: 'Press Start 2P', cursive; font-size: 1rem; margin-bottom: 10px;">No Products Yet</h2>
+        <p class="px-text-muted">Check back later for new items!</p>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.merch-grid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+}
+
+.merch-card-image {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    margin: 0 0 16px 0;
+    background: var(--px-bg-dark);
+    border: 2px solid var(--px-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.merch-card-image--placeholder {
+    background: linear-gradient(135deg, var(--px-bg-dark), var(--px-bg-panel));
+}
+
+.merch-card-image-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 24px;
+    font-family: 'Press Start 2P', cursive;
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-radius: 4px;
+}
+
+.btn-primary {
+    background: var(--px-gold);
+    color: #000;
+}
+
+.btn-primary:hover {
+    background: var(--px-gold-light);
+    transform: translateY(-2px);
+}
+
+
+.merch-card-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.merch-card-price {
+    font-family: 'Press Start 2P', cursive;
+    font-size: 0.8rem;
+    color: var(--px-gold);
+    flex-shrink: 0;
+}
+
+.merch-card-stock {
+    min-width: 0;
+    text-align: right;
+}
+
+.merch-stock-badge {
+    max-width: 100%;
+    white-space: normal;
+    word-break: break-word;
+}
+
+@media (max-width: 640px) {
+    .merch-card-meta {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+    }
+
+    .merch-card-stock {
+        text-align: left;
+        width: 100%;
+    }
+
+    .merch-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+    }
+    .merch-card-image {
+        margin-bottom: 12px;
+    }
+    .btn {
+        width: 100%;
+        font-size: 0.55rem;
+    }
+}
+</style>
+{% endblock %}
+
