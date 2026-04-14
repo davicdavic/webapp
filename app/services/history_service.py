@@ -132,107 +132,151 @@ class HistoryService:
     @staticmethod
     def ensure_history_schema() -> None:
         """Best-effort schema patching for existing DBs without migrations."""
-        inspector = inspect(db.engine)
-        table_names = set(inspector.get_table_names())
-        statements: list[str] = []
+        try:
+            inspector = inspect(db.engine)
+            table_names = set(inspector.get_table_names())
+            statements: list[str] = []
 
-        def add_column_if_missing(table: str, column: str, ddl: str) -> None:
-            if table not in table_names:
-                return
-            existing = {c['name'] for c in inspector.get_columns(table)}
-            if column not in existing:
-                statements.append(f'ALTER TABLE {table} ADD COLUMN {column} {ddl}')
+            def add_column_if_missing(table: str, column: str, ddl: str) -> None:
+                if table not in table_names:
+                    return
+                existing = {c['name'] for c in inspector.get_columns(table)}
+                if column not in existing:
+                    statements.append(f'ALTER TABLE {table} ADD COLUMN {column} {ddl}')
 
-        # Backward-compatible source-table patching.
-        add_column_if_missing('user_missions', 'created_at', 'TIMESTAMP')
-        add_column_if_missing('user_missions', 'is_archived', 'BOOLEAN DEFAULT 0')
-        add_column_if_missing('work_requests', 'created_at', 'TIMESTAMP')
-        add_column_if_missing('work_requests', 'is_archived', 'BOOLEAN DEFAULT 0')
-        add_column_if_missing('service_orders', 'created_at', 'TIMESTAMP')
-        add_column_if_missing('service_orders', 'is_archived', 'BOOLEAN DEFAULT 0')
-        add_column_if_missing('merch_orders', 'created_at', 'TIMESTAMP')
-        add_column_if_missing('merch_orders', 'is_archived', 'BOOLEAN DEFAULT 0')
-        add_column_if_missing('deposits', 'is_archived', 'BOOLEAN DEFAULT 0')
-        add_column_if_missing('withdraw_requests', 'is_archived', 'BOOLEAN DEFAULT 0')
+            # Backward-compatible source-table patching.
+            add_column_if_missing('user_missions', 'created_at', 'TIMESTAMP')
+            add_column_if_missing('user_missions', 'is_archived', 'BOOLEAN DEFAULT 0')
+            add_column_if_missing('work_requests', 'created_at', 'TIMESTAMP')
+            add_column_if_missing('work_requests', 'is_archived', 'BOOLEAN DEFAULT 0')
+            add_column_if_missing('service_orders', 'created_at', 'TIMESTAMP')
+            add_column_if_missing('service_orders', 'is_archived', 'BOOLEAN DEFAULT 0')
+            add_column_if_missing('merch_orders', 'created_at', 'TIMESTAMP')
+            add_column_if_missing('merch_orders', 'is_archived', 'BOOLEAN DEFAULT 0')
+            add_column_if_missing('deposits', 'is_archived', 'BOOLEAN DEFAULT 0')
+            add_column_if_missing('withdraw_requests', 'is_archived', 'BOOLEAN DEFAULT 0')
 
-        for stmt in statements:
-            db.session.execute(text(stmt))
+            for stmt in statements:
+                db.session.execute(text(stmt))
 
-        # Required unified history table.
-        # Use database-agnostic syntax for auto-incrementing primary keys
-        engine = db.engine
-        is_postgres = 'postgresql' in str(engine.url).lower()
-        
-        if is_postgres:
-            # PostgreSQL syntax
-            auto_increment = "SERIAL PRIMARY KEY"
-        else:
-            # SQLite syntax
-            auto_increment = "INTEGER PRIMARY KEY AUTOINCREMENT"
-        
-        db.session.execute(text(f"""
-            CREATE TABLE IF NOT EXISTS history_entries (
-                id {auto_increment},
-                user_id INTEGER NOT NULL,
-                source_key VARCHAR(40) NOT NULL,
-                source_id INTEGER NOT NULL,
-                type VARCHAR(30) NOT NULL,
-                section VARCHAR(80),
-                status VARCHAR(30) NOT NULL DEFAULT 'pending',
-                is_archived BOOLEAN NOT NULL DEFAULT 0,
-                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                summary TEXT,
-                link VARCHAR(255),
-                updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                CONSTRAINT ux_history_entries_user_source UNIQUE (user_id, source_key, source_id, type),
-                FOREIGN KEY(user_id) REFERENCES users(id)
-            )
-        """))
+            # Required unified history table.
+            # Use database-agnostic syntax for auto-incrementing primary keys
+            engine = db.engine
+            is_postgres = 'postgresql' in str(engine.url).lower()
+            
+            if is_postgres:
+                # PostgreSQL syntax
+                auto_increment = "SERIAL PRIMARY KEY"
+            else:
+                # SQLite syntax
+                auto_increment = "INTEGER PRIMARY KEY AUTOINCREMENT"
+            
+            db.session.execute(text(f"""
+                CREATE TABLE IF NOT EXISTS history_entries (
+                    id {auto_increment},
+                    user_id INTEGER NOT NULL,
+                    source_key VARCHAR(40) NOT NULL,
+                    source_id INTEGER NOT NULL,
+                    type VARCHAR(30) NOT NULL,
+                    section VARCHAR(80),
+                    status VARCHAR(30) NOT NULL DEFAULT 'pending',
+                    is_archived BOOLEAN NOT NULL DEFAULT 0,
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    summary TEXT,
+                    link VARCHAR(255),
+                    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    CONSTRAINT ux_history_entries_user_source UNIQUE (user_id, source_key, source_id, type),
+                    FOREIGN KEY(user_id) REFERENCES users(id)
+                )
+            """))
 
-        # Backfill created_at from legacy fields.
-        db.session.execute(
-            text('UPDATE user_missions SET created_at = submission_time WHERE created_at IS NULL')
-        )
-        db.session.execute(
-            text('UPDATE merch_orders SET created_at = purchased_at WHERE created_at IS NULL')
-        )
-        db.session.execute(
-            text("UPDATE user_missions SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL")
-        )
-        db.session.execute(
-            text("UPDATE merch_orders SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL")
-        )
+            # Backfill created_at from legacy fields.
+            # Only update if the source columns exist
+            if table_names and 'user_missions' in table_names:
+                existing_columns = {c['name'] for c in inspector.get_columns('user_missions')}
+                if 'submission_time' in existing_columns:
+                    db.session.execute(
+                        text('UPDATE user_missions SET created_at = submission_time WHERE created_at IS NULL')
+                    )
+                db.session.execute(
+                    text("UPDATE user_missions SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL")
+                )
+            
+            if table_names and 'merch_orders' in table_names:
+                existing_columns = {c['name'] for c in inspector.get_columns('merch_orders')}
+                if 'purchased_at' in existing_columns:
+                    db.session.execute(
+                        text('UPDATE merch_orders SET created_at = purchased_at WHERE created_at IS NULL')
+                    )
+                db.session.execute(
+                    text("UPDATE merch_orders SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL")
+                )
 
-        # Performance indexes.
-        db.session.execute(
-            text('CREATE INDEX IF NOT EXISTS ix_user_missions_user_created_arch ON user_missions (user_id, created_at, is_archived)')
-        )
-        db.session.execute(
-            text('CREATE INDEX IF NOT EXISTS ix_work_requests_user_created_arch ON work_requests (user_id, created_at, is_archived)')
-        )
-        db.session.execute(
-            text('CREATE INDEX IF NOT EXISTS ix_service_orders_user_created_arch ON service_orders (user_id, created_at, is_archived)')
-        )
-        db.session.execute(
-            text('CREATE INDEX IF NOT EXISTS ix_merch_orders_user_created_arch ON merch_orders (user_id, created_at, is_archived)')
-        )
-        db.session.execute(
-            text('CREATE INDEX IF NOT EXISTS ix_deposits_user_created_arch ON deposits (user_id, created_at, is_archived)')
-        )
-        db.session.execute(
-            text('CREATE INDEX IF NOT EXISTS ix_withdraw_requests_user_created_arch ON withdraw_requests (user_id, created_at, is_archived)')
-        )
-        db.session.execute(
-            text('CREATE INDEX IF NOT EXISTS ix_history_entries_user_created ON history_entries (user_id, created_at DESC)')
-        )
-        db.session.execute(
-            text('CREATE INDEX IF NOT EXISTS ix_history_entries_user_type_arch ON history_entries (user_id, type, is_archived, created_at DESC)')
-        )
-        db.session.execute(
-            text('CREATE INDEX IF NOT EXISTS ix_history_entries_type_status_arch ON history_entries (type, status, is_archived, created_at DESC)')
-        )
+            # Performance indexes.
+            # Only create indexes if tables and columns exist
+            if table_names and 'user_missions' in table_names:
+                existing_columns = {c['name'] for c in inspector.get_columns('user_missions')}
+                if 'user_id' in existing_columns and 'created_at' in existing_columns and 'is_archived' in existing_columns:
+                    db.session.execute(
+                        text('CREATE INDEX IF NOT EXISTS ix_user_missions_user_created_arch ON user_missions (user_id, created_at, is_archived)')
+                    )
+            
+            if table_names and 'work_requests' in table_names:
+                existing_columns = {c['name'] for c in inspector.get_columns('work_requests')}
+                if 'user_id' in existing_columns and 'created_at' in existing_columns and 'is_archived' in existing_columns:
+                    db.session.execute(
+                        text('CREATE INDEX IF NOT EXISTS ix_work_requests_user_created_arch ON work_requests (user_id, created_at, is_archived)')
+                    )
+            
+            if table_names and 'service_orders' in table_names:
+                existing_columns = {c['name'] for c in inspector.get_columns('service_orders')}
+                if 'user_id' in existing_columns and 'created_at' in existing_columns and 'is_archived' in existing_columns:
+                    db.session.execute(
+                        text('CREATE INDEX IF NOT EXISTS ix_service_orders_user_created_arch ON service_orders (user_id, created_at, is_archived)')
+                    )
+            
+            if table_names and 'merch_orders' in table_names:
+                existing_columns = {c['name'] for c in inspector.get_columns('merch_orders')}
+                if 'user_id' in existing_columns and 'created_at' in existing_columns and 'is_archived' in existing_columns:
+                    db.session.execute(
+                        text('CREATE INDEX IF NOT EXISTS ix_merch_orders_user_created_arch ON merch_orders (user_id, created_at, is_archived)')
+                    )
+            
+            if table_names and 'deposits' in table_names:
+                existing_columns = {c['name'] for c in inspector.get_columns('deposits')}
+                if 'user_id' in existing_columns and 'created_at' in existing_columns and 'is_archived' in existing_columns:
+                    db.session.execute(
+                        text('CREATE INDEX IF NOT EXISTS ix_deposits_user_created_arch ON deposits (user_id, created_at, is_archived)')
+                    )
+            
+            if table_names and 'withdraw_requests' in table_names:
+                existing_columns = {c['name'] for c in inspector.get_columns('withdraw_requests')}
+                if 'user_id' in existing_columns and 'created_at' in existing_columns and 'is_archived' in existing_columns:
+                    db.session.execute(
+                        text('CREATE INDEX IF NOT EXISTS ix_withdraw_requests_user_created_arch ON withdraw_requests (user_id, created_at, is_archived)')
+                    )
+            
+            # History table indexes
+            if table_names and 'history_entries' in table_names:
+                existing_columns = {c['name'] for c in inspector.get_columns('history_entries')}
+                if 'user_id' in existing_columns and 'created_at' in existing_columns:
+                    db.session.execute(
+                        text('CREATE INDEX IF NOT EXISTS ix_history_entries_user_created ON history_entries (user_id, created_at DESC)')
+                    )
+                if 'user_id' in existing_columns and 'type' in existing_columns and 'is_archived' in existing_columns and 'created_at' in existing_columns:
+                    db.session.execute(
+                        text('CREATE INDEX IF NOT EXISTS ix_history_entries_user_type_arch ON history_entries (user_id, type, is_archived, created_at DESC)')
+                    )
+                if 'type' in existing_columns and 'status' in existing_columns and 'is_archived' in existing_columns and 'created_at' in existing_columns:
+                    db.session.execute(
+                        text('CREATE INDEX IF NOT EXISTS ix_history_entries_type_status_arch ON history_entries (type, status, is_archived, created_at DESC)')
+                    )
 
-        db.session.commit()
+            db.session.commit()
+        except Exception as e:
+            # If schema setup fails, rollback and continue - don't break the app startup
+            db.session.rollback()
+            print(f"Warning: Schema setup failed: {e}. Continuing with app startup.")
 
     @staticmethod
     def cutoff_datetime() -> datetime:
