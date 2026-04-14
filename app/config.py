@@ -27,13 +27,19 @@ class Config:
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
         f'sqlite:///{os.path.join(BASE_DIR, "..", "instance", "database.db")}'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    SQLALCHEMY_ENGINE_OPTIONS = {
-        'pool_pre_ping': True,
-        'pool_recycle': int(os.environ.get('DB_POOL_RECYCLE') or '300'),
-        'pool_size': int(os.environ.get('DB_POOL_SIZE') or '20'),
-        'max_overflow': int(os.environ.get('DB_MAX_OVERFLOW') or '30'),
-        'pool_timeout': int(os.environ.get('DB_POOL_TIMEOUT') or '30'),
-    }
+
+    if 'sqlite' in SQLALCHEMY_DATABASE_URI:
+        SQLALCHEMY_ENGINE_OPTIONS = {
+            'pool_pre_ping': True,
+        }
+    else:
+        SQLALCHEMY_ENGINE_OPTIONS = {
+            'pool_pre_ping': True,
+            'pool_recycle': int(os.environ.get('DB_POOL_RECYCLE') or '300'),
+            'pool_size': int(os.environ.get('DB_POOL_SIZE') or '20'),
+            'max_overflow': int(os.environ.get('DB_MAX_OVERFLOW') or '30'),
+            'pool_timeout': int(os.environ.get('DB_POOL_TIMEOUT') or '30'),
+        }
 
     # Cache Configuration - Optimized for high traffic
     # For production with 100K+ users, use Redis: CACHE_TYPE = 'redis'
@@ -199,13 +205,18 @@ class ProductionConfig(Config):
     GAME_STATE_BACKEND = os.environ.get('GAME_STATE_BACKEND') or 'redis'
 
     # Database connection pool for production
-    SQLALCHEMY_ENGINE_OPTIONS = {
-        'pool_pre_ping': True,
-        'pool_recycle': int(os.environ.get('DB_POOL_RECYCLE') or '300'),
-        'pool_size': int(os.environ.get('DB_POOL_SIZE') or '80'),
-        'max_overflow': int(os.environ.get('DB_MAX_OVERFLOW') or '120'),
-        'pool_timeout': int(os.environ.get('DB_POOL_TIMEOUT') or '30'),
-    }
+    if 'sqlite' in os.environ.get('DATABASE_URL', '') or not os.environ.get('DATABASE_URL'):
+        SQLALCHEMY_ENGINE_OPTIONS = {
+            'pool_pre_ping': True,
+        }
+    else:
+        SQLALCHEMY_ENGINE_OPTIONS = {
+            'pool_pre_ping': True,
+            'pool_recycle': int(os.environ.get('DB_POOL_RECYCLE') or '300'),
+            'pool_size': int(os.environ.get('DB_POOL_SIZE') or '80'),
+            'max_overflow': int(os.environ.get('DB_MAX_OVERFLOW') or '120'),
+            'pool_timeout': int(os.environ.get('DB_POOL_TIMEOUT') or '30'),
+        }
 
     # Longer cache times for production
     CACHE_DEFAULT_TIMEOUT = int(os.environ.get('CACHE_TIMEOUT') or '300')  # 5 minutes

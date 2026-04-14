@@ -90,7 +90,10 @@ def create_app(config_name=None):
         # Ensure database directory exists for SQLite
         if 'sqlite' in app.config['SQLALCHEMY_DATABASE_URI']:
             db_path = app.config['SQLALCHEMY_DATABASE_URI'].replace('sqlite:///', '')
-            os.makedirs(os.path.dirname(db_path), exist_ok=True)
+            if db_path and db_path != ':memory:':
+                db_dir = os.path.dirname(db_path)
+                if db_dir:
+                    os.makedirs(db_dir, exist_ok=True)
         with app.app_context():
             db.create_all()
             from app.services.deposit_service import DepositService
