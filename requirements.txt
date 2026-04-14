@@ -12,3 +12,4 @@ Flask-Compress==1.14
 python-dotenv==1.0.0
 pillow==10.4.0
 requests==2.31.0
+gevent==24.2.1
