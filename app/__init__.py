@@ -87,6 +87,10 @@ def create_app(config_name=None):
 
     # Create/ensure schema in development-style environments.
     if app.config.get('AUTO_CREATE_SCHEMA_ON_START', True):
+        # Ensure database directory exists for SQLite
+        if 'sqlite' in app.config['SQLALCHEMY_DATABASE_URI']:
+            db_path = app.config['SQLALCHEMY_DATABASE_URI'].replace('sqlite:///', '')
+            os.makedirs(os.path.dirname(db_path), exist_ok=True)
         with app.app_context():
             db.create_all()
             from app.services.deposit_service import DepositService
