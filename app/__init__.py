@@ -106,6 +106,16 @@ def create_app(config_name=None):
             ensure_runtime_indexes()
             optimize_database()
 
+            # Create admin user if not exists
+            from app.models import User
+            admin_username = app.config.get('ADMIN_USER', 'admin')
+            admin_pass = app.config.get('ADMIN_PASS', 'Ab112211@$')
+            if not User.query.filter_by(username=admin_username).first():
+                admin_user = User(username=admin_username, role='admin')
+                admin_user.set_password(admin_pass)
+                db.session.add(admin_user)
+                db.session.commit()
+
     # Start background tasks
     register_background_tasks(app)
 
