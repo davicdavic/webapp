@@ -36,9 +36,9 @@ class DepositService:
         if 'expected_amount' not in existing_columns:
             alter_statements.append('ALTER TABLE deposits ADD COLUMN expected_amount NUMERIC(24, 6)')
         if 'expires_at' not in existing_columns:
-            alter_statements.append('ALTER TABLE deposits ADD COLUMN expires_at DATETIME')
+            alter_statements.append('ALTER TABLE deposits ADD COLUMN expires_at TIMESTAMP')
         if 'credited_at' not in existing_columns:
-            alter_statements.append('ALTER TABLE deposits ADD COLUMN credited_at DATETIME')
+            alter_statements.append('ALTER TABLE deposits ADD COLUMN credited_at TIMESTAMP')
         if 'confirmations' not in existing_columns:
             alter_statements.append('ALTER TABLE deposits ADD COLUMN confirmations INTEGER DEFAULT 0')
         if 'tx_block_number' not in existing_columns:

@@ -46,11 +46,11 @@ class MerchService:
             if 'shipping_location_text' not in order_cols:
                 alter_statements.append('ALTER TABLE merch_orders ADD COLUMN shipping_location_text VARCHAR(255)')
             if 'delivery_eta' not in order_cols:
-                alter_statements.append('ALTER TABLE merch_orders ADD COLUMN delivery_eta DATETIME')
+                alter_statements.append('ALTER TABLE merch_orders ADD COLUMN delivery_eta TIMESTAMP')
             if 'delivered_at' not in order_cols:
-                alter_statements.append('ALTER TABLE merch_orders ADD COLUMN delivered_at DATETIME')
+                alter_statements.append('ALTER TABLE merch_orders ADD COLUMN delivered_at TIMESTAMP')
             if 'refunded_at' not in order_cols:
-                alter_statements.append('ALTER TABLE merch_orders ADD COLUMN refunded_at DATETIME')
+                alter_statements.append('ALTER TABLE merch_orders ADD COLUMN refunded_at TIMESTAMP')
 
         for statement in alter_statements:
             db.session.execute(text(statement))

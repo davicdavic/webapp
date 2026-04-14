@@ -144,11 +144,11 @@ class HistoryService:
                 statements.append(f'ALTER TABLE {table} ADD COLUMN {column} {ddl}')
 
         # Backward-compatible source-table patching.
-        add_column_if_missing('user_missions', 'created_at', 'DATETIME')
+        add_column_if_missing('user_missions', 'created_at', 'TIMESTAMP')
         add_column_if_missing('user_missions', 'is_archived', 'BOOLEAN DEFAULT 0')
         add_column_if_missing('work_requests', 'is_archived', 'BOOLEAN DEFAULT 0')
         add_column_if_missing('service_orders', 'is_archived', 'BOOLEAN DEFAULT 0')
-        add_column_if_missing('merch_orders', 'created_at', 'DATETIME')
+        add_column_if_missing('merch_orders', 'created_at', 'TIMESTAMP')
         add_column_if_missing('merch_orders', 'is_archived', 'BOOLEAN DEFAULT 0')
         add_column_if_missing('deposits', 'is_archived', 'BOOLEAN DEFAULT 0')
         add_column_if_missing('withdraw_requests', 'is_archived', 'BOOLEAN DEFAULT 0')
@@ -157,9 +157,21 @@ class HistoryService:
             db.session.execute(text(stmt))
 
         # Required unified history table.
-        db.session.execute(text("""
+        # Use database-agnostic syntax for auto-incrementing primary keys
+        from sqlalchemy import inspect
+        engine = db.engine
+        is_postgres = 'postgresql' in str(engine.url).lower()
+        
+        if is_postgres:
+            # PostgreSQL syntax
+            auto_increment = "SERIAL PRIMARY KEY"
+        else:
+            # SQLite syntax
+            auto_increment = "INTEGER PRIMARY KEY AUTOINCREMENT"
+        
+        db.session.execute(text(f"""
             CREATE TABLE IF NOT EXISTS history_entries (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id {auto_increment},
                 user_id INTEGER NOT NULL,
                 source_key VARCHAR(40) NOT NULL,
                 source_id INTEGER NOT NULL,
@@ -167,10 +179,10 @@ class HistoryService:
                 section VARCHAR(80),
                 status VARCHAR(30) NOT NULL DEFAULT 'pending',
                 is_archived BOOLEAN NOT NULL DEFAULT 0,
-                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 summary TEXT,
                 link VARCHAR(255),
-                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 CONSTRAINT ux_history_entries_user_source UNIQUE (user_id, source_key, source_id, type),
                 FOREIGN KEY(user_id) REFERENCES users(id)
             )

@@ -31,7 +31,7 @@ class SellerService:
         alter_statements = []
 
         if 'seller_expires_at' not in user_cols:
-            alter_statements.append('ALTER TABLE users ADD COLUMN seller_expires_at DATETIME')
+            alter_statements.append('ALTER TABLE users ADD COLUMN seller_expires_at TIMESTAMP')
         if 'seller_reminder_sent_at' not in user_cols:
             alter_statements.append('ALTER TABLE users ADD COLUMN seller_reminder_sent_at DATETIME')
         if 'seller_sales_seen_at' not in user_cols:
