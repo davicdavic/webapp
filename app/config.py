@@ -185,7 +185,7 @@ class ProductionConfig(Config):
     """Production configuration - Optimized for 100K+ users"""
     DEBUG = False
     TESTING = False
-    AUTO_CREATE_SCHEMA_ON_START = _bool_env('AUTO_CREATE_SCHEMA_ON_START', False)
+    AUTO_CREATE_SCHEMA_ON_START = _bool_env('AUTO_CREATE_SCHEMA_ON_START', True)
 
     SESSION_COOKIE_SECURE = True
     REMEMBER_COOKIE_SECURE = True
