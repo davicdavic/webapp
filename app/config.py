@@ -187,6 +187,9 @@ class ProductionConfig(Config):
     TESTING = False
     AUTO_CREATE_SCHEMA_ON_START = _bool_env('AUTO_CREATE_SCHEMA_ON_START', True)
 
+    # Database URI for production (use /tmp for SQLite if no DATABASE_URL)
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'sqlite:////tmp/database.db'
+
     SESSION_COOKIE_SECURE = True
     REMEMBER_COOKIE_SECURE = True
 
