@@ -95,29 +95,34 @@ def create_app(config_name=None):
                 if db_dir:
                     os.makedirs(db_dir, exist_ok=True)
         with app.app_context():
-            db.create_all()
-            from app.services.deposit_service import DepositService
-            DepositService.ensure_deposit_schema()
-            from app.services.seller_service import SellerService
-            SellerService.ensure_seller_schema()
-            from app.services.notification_service import NotificationService
-            NotificationService.ensure_notification_schema()
-            from app.services.merch_service import MerchService
-            MerchService.ensure_merch_schema()
-            from app.services.history_service import HistoryService
-            HistoryService.ensure_history_schema()
-            ensure_runtime_indexes()
-            optimize_database()
+            def safe_schema_step(step_name, func):
+                try:
+                    func()
+                except Exception as exc:
+                    db.session.rollback()
+                    db.session.remove()
+                    print(f"Warning: {step_name} failed during startup: {exc}")
+
+            safe_schema_step('db.create_all', lambda: db.create_all())
+            safe_schema_step('DepositService.ensure_deposit_schema', lambda: __import__('app.services.deposit_service', fromlist=['DepositService']).DepositService.ensure_deposit_schema())
+            safe_schema_step('SellerService.ensure_seller_schema', lambda: __import__('app.services.seller_service', fromlist=['SellerService']).SellerService.ensure_seller_schema())
+            safe_schema_step('NotificationService.ensure_notification_schema', lambda: __import__('app.services.notification_service', fromlist=['NotificationService']).NotificationService.ensure_notification_schema())
+            safe_schema_step('MerchService.ensure_merch_schema', lambda: __import__('app.services.merch_service', fromlist=['MerchService']).MerchService.ensure_merch_schema())
+            safe_schema_step('HistoryService.ensure_history_schema', lambda: __import__('app.services.history_service', fromlist=['HistoryService']).HistoryService.ensure_history_schema())
+            safe_schema_step('ensure_runtime_indexes', ensure_runtime_indexes)
+            safe_schema_step('optimize_database', optimize_database)
 
             # Create admin user if not exists
             from app.models import User
             admin_username = app.config.get('ADMIN_USER', 'admin')
             admin_pass = app.config.get('ADMIN_PASS', 'Ab112211@$')
-            if not User.query.filter_by(username=admin_username).first():
-                admin_user = User(username=admin_username, role='admin')
-                admin_user.set_password(admin_pass)
-                db.session.add(admin_user)
-                db.session.commit()
+            def create_admin_user():
+                if not User.query.filter_by(username=admin_username).first():
+                    admin_user = User(username=admin_username, role='admin')
+                    admin_user.set_password(admin_pass)
+                    db.session.add(admin_user)
+                    db.session.commit()
+            safe_schema_step('create_admin_user', create_admin_user)
 
     # Start background tasks
     register_background_tasks(app)
@@ -422,7 +427,11 @@ def ensure_runtime_indexes():
 def optimize_database():
     """Optimize database for better performance - enable WAL mode and pragmas."""
     from sqlalchemy import text
-    
+
+    engine_url = str(db.engine.url).lower()
+    if 'sqlite' not in engine_url:
+        return
+
     # Enable WAL mode for better concurrent read/write performance
     try:
         db.session.execute(text('PRAGMA journal_mode=WAL'))
@@ -430,6 +439,6 @@ def optimize_database():
         db.session.execute(text('PRAGMA cache_size=-64000'))  # 64MB cache
         db.session.execute(text('PRAGMA temp_store=MEMORY'))
         db.session.commit()
-    except Exception as e:
+    except Exception:
         # WAL mode may not be available on all SQLite versions
         pass

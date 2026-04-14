@@ -14,15 +14,18 @@ class NotificationService:
     @staticmethod
     def ensure_notification_schema():
         inspector = inspect(db.engine)
+        engine_url = str(db.engine.url).lower()
+        is_postgres = 'postgresql' in engine_url
+        id_column = 'SERIAL PRIMARY KEY' if is_postgres else 'INTEGER PRIMARY KEY AUTOINCREMENT'
         if 'user_notifications' not in inspector.get_table_names():
             db.session.execute(text(
                 'CREATE TABLE user_notifications ('
-                'id INTEGER PRIMARY KEY AUTOINCREMENT, '
+                f'id {id_column}, '
                 'user_id INTEGER NOT NULL, '
                 'message TEXT NOT NULL, '
                 'attachment_path VARCHAR(255), '
-                'created_at DATETIME, '
-                'read_at DATETIME, '
+                'created_at TIMESTAMP, '
+                'read_at TIMESTAMP, '
                 'sent_by INTEGER'
                 ')'
             ))

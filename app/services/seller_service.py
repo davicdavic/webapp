@@ -30,23 +30,28 @@ class SellerService:
         user_cols = {col['name'] for col in inspector.get_columns('users')}
         alter_statements = []
 
+        engine_url = str(db.engine.url).lower()
+        is_postgres = 'postgresql' in engine_url
+
         if 'seller_expires_at' not in user_cols:
             alter_statements.append('ALTER TABLE users ADD COLUMN seller_expires_at TIMESTAMP')
         if 'seller_reminder_sent_at' not in user_cols:
-            alter_statements.append('ALTER TABLE users ADD COLUMN seller_reminder_sent_at DATETIME')
+            alter_statements.append('ALTER TABLE users ADD COLUMN seller_reminder_sent_at TIMESTAMP')
         if 'seller_sales_seen_at' not in user_cols:
-            alter_statements.append('ALTER TABLE users ADD COLUMN seller_sales_seen_at DATETIME')
+            alter_statements.append('ALTER TABLE users ADD COLUMN seller_sales_seen_at TIMESTAMP')
+
+        id_column = 'SERIAL PRIMARY KEY' if is_postgres else 'INTEGER PRIMARY KEY AUTOINCREMENT'
 
         # Create seller_ratings table if missing (SQLite-friendly)
         if 'seller_ratings' not in inspector.get_table_names():
             alter_statements.append(
                 'CREATE TABLE seller_ratings ('
-                'id INTEGER PRIMARY KEY AUTOINCREMENT, '
+                f'id {id_column}, '
                 'seller_id INTEGER NOT NULL, '
                 'rater_id INTEGER NOT NULL, '
                 'rating INTEGER NOT NULL, '
-                'created_at DATETIME, '
-                'updated_at DATETIME, '
+                'created_at TIMESTAMP, '
+                'updated_at TIMESTAMP, '
                 'CONSTRAINT ux_seller_ratings_seller_rater UNIQUE (seller_id, rater_id)'
                 ')'
             )
@@ -57,14 +62,14 @@ class SellerService:
         if 'seller_reports' not in inspector.get_table_names():
             alter_statements.append(
                 'CREATE TABLE seller_reports ('
-                'id INTEGER PRIMARY KEY AUTOINCREMENT, '
+                f'id {id_column}, '
                 'seller_id INTEGER NOT NULL, '
                 'reporter_id INTEGER NOT NULL, '
                 'message TEXT NOT NULL, '
                 'evidence_path VARCHAR(255), '
-                'status VARCHAR(20) DEFAULT \"pending\", '
-                'created_at DATETIME, '
-                'reviewed_at DATETIME, '
+                'status VARCHAR(20) DEFAULT "pending", '
+                'created_at TIMESTAMP, '
+                'reviewed_at TIMESTAMP, '
                 'reviewed_by INTEGER'
                 ')'
             )
