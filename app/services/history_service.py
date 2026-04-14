@@ -158,7 +158,6 @@ class HistoryService:
 
         # Required unified history table.
         # Use database-agnostic syntax for auto-incrementing primary keys
-        from sqlalchemy import inspect
         engine = db.engine
         is_postgres = 'postgresql' in str(engine.url).lower()
         
