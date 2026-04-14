@@ -14,9 +14,8 @@ backlog = 2048
 # For 100K users, use more workers with gevent
 workers = int(os.environ.get('WEB_CONCURRENCY', multiprocessing.cpu_count() * 2 + 1))
 
-# Worker class - Use gevent for async I/O (crucial for high concurrency)
-# gevent allows handling thousands of concurrent connections per worker
-worker_class = 'gevent'
+# Worker class - Use sync for compatibility (no extra dependencies needed)
+worker_class = 'sync'
 
 # Worker connections - Number of simultaneous clients per worker
 worker_connections = int(os.environ.get('WORKER_CONNECTIONS', '1000'))
