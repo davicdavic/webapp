@@ -146,7 +146,9 @@ class HistoryService:
         # Backward-compatible source-table patching.
         add_column_if_missing('user_missions', 'created_at', 'TIMESTAMP')
         add_column_if_missing('user_missions', 'is_archived', 'BOOLEAN DEFAULT 0')
+        add_column_if_missing('work_requests', 'created_at', 'TIMESTAMP')
         add_column_if_missing('work_requests', 'is_archived', 'BOOLEAN DEFAULT 0')
+        add_column_if_missing('service_orders', 'created_at', 'TIMESTAMP')
         add_column_if_missing('service_orders', 'is_archived', 'BOOLEAN DEFAULT 0')
         add_column_if_missing('merch_orders', 'created_at', 'TIMESTAMP')
         add_column_if_missing('merch_orders', 'is_archived', 'BOOLEAN DEFAULT 0')
