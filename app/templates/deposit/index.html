@@ -16,53 +16,43 @@ Deposit - RetroQuest
             <h2 class="px-panel-title">Create Deposit</h2>
         </div>
 
-        <form method="POST" action="{{ url_for('deposit.create') }}" id="depositForm">
-            <!-- Coin Selection -->
+        <form method="POST" action="/create-deposit" id="depositForm">
             <div class="px-form-group">
-                <label class="px-label" for="coin_type">Select Coin</label>
-                <select id="coin_type" name="coin_type" class="px-input" required>
-                    {% for coin in coins %}
-                    <option value="{{coin.type}}">{{coin.type}} ({{coin.config.to_points}} TNNO per coin)</option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <!-- Amount Input -->
-            <div class="px-form-group">
-                <label class="px-label" for="amount">Amount</label>
+                <label class="px-label" for="amount">Amount (USDT)</label>
                 <input
                     type="number"
                     id="amount"
                     name="amount"
                     class="px-input"
                     placeholder="Enter amount"
-                    step="0.000001"
+                    step="0.01"
+                    min="1"
                     required
                 >
-                <p class="px-text-muted px-text-sm px-mt-sm">
-                    Minimum: <span id="minDeposit">5</span> <span id="coinUnit">USDT</span>
-                </p>
-                <p class="px-text-muted px-text-sm">
-                    Conversion: 1 <span id="coinUnit2">USDT</span> = <span id="conversionRate">4000</span> TNNO
-                </p>
             </div>
 
-            <!-- Price Display Box -->
-            <div class="price-display-box">
-                <div class="price-display-label">Amount to Send</div>
-                <div class="price-display-value" id="priceDisplay">0.000000 USDT</div>
-                <div class="price-display-tnno" id="tnnoDisplay">= 0 TNNO</div>
+            <div class="px-form-group">
+                <label class="px-label" for="network">Network</label>
+                <select id="network" name="network" class="px-input" required>
+                    <option value="TRC20">USDT (TRC20 - low fee)</option>
+                    <option value="ERC20">USDT (ERC20 - high fee)</option>
+                    <option value="BEP20">USDT (BEP20 - medium fee)</option>
+                </select>
             </div>
 
-            <button type="submit" class="px-btn px-btn-primary px-btn-lg" style="width: 100%; margin-top: 16px;">Get Payment Address</button>
+            <p class="px-text-muted px-text-sm" style="color: #f5d442; margin-top: 12px;">
+                ⚠️ Send only using the selected network. Wrong network may result in permanent loss.
+            </p>
+
+            <button type="submit" class="px-btn px-btn-primary px-btn-lg" style="width: 100%; margin-top: 16px;">Create Deposit</button>
         </form>
 
         <div class="px-panel" style="background: var(--px-bg-dark); margin-top: 16px;">
             <h4 style="color: var(--px-orange);">Payment Rules</h4>
             <ul class="px-text-sm px-text-muted" style="line-height: 1.6; padding-left: 18px;">
-                <li>Network: BNB Smart Chain (BEP20)</li>
-                <li>Send the exact amount shown on payment page</li>
-                <li>Each request expires after 20 minutes</li>
+                <li>Deposit is created through CloudPaya and will open the payment provider page.</li>
+                <li>Use the selected network exactly as shown.</li>
+                <li>Payment confirmation may take a few minutes.</li>
             </ul>
         </div>
     </div>
@@ -77,17 +67,17 @@ Deposit - RetroQuest
             <thead>
                 <tr>
                     <th>ID</th>
-                    <th>Amount</th>
-                    <th>Expected</th>
+                    <th>Amount (USDT)</th>
+                    <th>Network</th>
                     <th>Status</th>
                     <th>Created</th>
-                    <th>Action</th>
                 </tr>
             </thead>
             <tbody>
                 {% for deposit in deposits.items %}
-                {% set expected = deposit.expected_amount if deposit.expected_amount is not none else deposit.usdt_amount %}
-                {% if deposit.status in ['success', 'completed'] %}
+                {% set amount_value = deposit.amount if deposit.amount is not none else deposit.usdt_amount %}
+                {% set network_value = deposit.network if deposit.network else deposit.coin_type %}
+                {% if deposit.status in ['completed', 'success'] %}
                     {% set badge = 'completed' %}
                 {% elif deposit.status in ['expired', 'cancelled'] %}
                     {% set badge = 'cancelled' %}
@@ -96,17 +86,10 @@ Deposit - RetroQuest
                 {% endif %}
                 <tr>
                     <td>#{{ deposit.id }}</td>
-                    <td>{{ '%.6f'|format(deposit.usdt_amount) }} {{ deposit.coin_type or 'USDT' }}</td>
-                    <td>{{ '%.6f'|format(expected|float) }} {{ deposit.coin_type or 'USDT' }}</td>
+                    <td>{{ '%.2f'|format(amount_value|float) }} USDT</td>
+                    <td>{{ network_value }}</td>
                     <td><span class="px-status px-status-{{ badge }}">{{ deposit.status|title }}</span></td>
                     <td>{{ deposit.created_at.strftime('%Y-%m-%d %H:%M') if deposit.created_at else '' }}</td>
-                    <td>
-                        {% if deposit.status == 'pending' %}
-                        <a href="{{ url_for('deposit.view', deposit_id=deposit.id) }}" class="px-btn px-btn-sm px-btn-secondary">Pay</a>
-                        {% else %}
-                        <span class="px-text-muted">-</span>
-                        {% endif %}
-                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -254,67 +237,5 @@ Deposit - RetroQuest
     }
 }
 </style>
-
-<script>
-function initDepositCalculator() {
-    const coinsData = {{ coins | tojson }};
-    const coinSelect = document.getElementById('coin_type');
-    const amountInput = document.getElementById('amount');
-    const priceDisplay = document.getElementById('priceDisplay');
-    const tnnoDisplay = document.getElementById('tnnoDisplay');
-    const minDepositSpan = document.getElementById('minDeposit');
-    const coinUnitSpans = document.querySelectorAll('#coinUnit, #coinUnit2');
-    const conversionRateSpan = document.getElementById('conversionRate');
-
-    if (!coinSelect || !amountInput || !priceDisplay) return;
-
-    // Coin data from template
-    const coinData = {};
-    for (const coin of coinsData) {
-        coinData[coin.type] = {
-            min_deposit: coin.config.min_deposit,
-            to_points: coin.config.to_points
-        };
-    }
-
-    function updateCoinInfo() {
-        const selectedCoin = coinSelect.value;
-        const coinInfo = coinData[selectedCoin] || coinData['USDT'];
-        if (!coinInfo) return;
-        
-        minDepositSpan.textContent = coinInfo.min_deposit;
-        conversionRateSpan.textContent = coinInfo.to_points;
-        
-        coinUnitSpans.forEach(span => {
-            span.textContent = selectedCoin;
-        });
-
-        // Trigger amount change update
-        updateAmountDisplay();
-    }
-
-    function updateAmountDisplay() {
-        const selectedCoin = coinSelect.value;
-        const coinInfo = coinData[selectedCoin] || coinData['USDT'];
-        if (!coinInfo) return;
-        const amount = parseFloat(amountInput.value) || 0;
-        
-        const formattedAmount = amount.toFixed(6);
-        priceDisplay.textContent = formattedAmount + ' ' + selectedCoin;
-        
-        const tnno = (amount * coinInfo.to_points).toFixed(0);
-        tnnoDisplay.textContent = '= ' + tnno + ' TNNO';
-    }
-
-    coinSelect.addEventListener('change', updateCoinInfo);
-    amountInput.addEventListener('input', updateAmountDisplay);
-
-    // Initial update
-    updateCoinInfo();
-}
-
-document.addEventListener('DOMContentLoaded', initDepositCalculator);
-document.addEventListener('turbo:load', initDepositCalculator);
-</script>
 
 {% endblock %}

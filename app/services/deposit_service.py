@@ -8,6 +8,7 @@ import random
 from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation, ROUND_DOWN
 
+import requests
 from flask import current_app
 from sqlalchemy import inspect, text
 
@@ -49,6 +50,14 @@ class DepositService:
             alter_statements.append('ALTER TABLE deposits ADD COLUMN last_scanned_block BIGINT')
         if 'coin_type' not in existing_columns:
             alter_statements.append("ALTER TABLE deposits ADD COLUMN coin_type VARCHAR(20) DEFAULT 'USDT'")
+        if 'amount' not in existing_columns:
+            alter_statements.append('ALTER TABLE deposits ADD COLUMN amount FLOAT NOT NULL DEFAULT 0')
+        if 'network' not in existing_columns:
+            alter_statements.append("ALTER TABLE deposits ADD COLUMN network VARCHAR(20) DEFAULT 'BEP20'")
+        if 'payment_id' not in existing_columns:
+            alter_statements.append('ALTER TABLE deposits ADD COLUMN payment_id VARCHAR(255)')
+        if 'coins_added' not in existing_columns:
+            alter_statements.append('ALTER TABLE deposits ADD COLUMN coins_added INTEGER')
         # ensure blockchain_state table exists if not
         if 'blockchain_state' not in inspector.get_table_names():
             alter_statements.append('CREATE TABLE blockchain_state (coin_type VARCHAR(20) PRIMARY KEY, last_block BIGINT NOT NULL DEFAULT 0)')
@@ -85,6 +94,7 @@ class DepositService:
 
         try:
             db.session.execute(text('CREATE UNIQUE INDEX IF NOT EXISTS ux_deposits_tx_hash ON deposits (tx_hash)'))
+            db.session.execute(text('CREATE UNIQUE INDEX IF NOT EXISTS ux_deposits_payment_id ON deposits (payment_id)'))
             db.session.commit()
         except Exception:
             # If legacy duplicate data exists, keep runtime duplicate checks active.
@@ -211,6 +221,104 @@ class DepositService:
     def get_deposit_by_id(deposit_id):
         """Get deposit by ID."""
         return Deposit.query.get(deposit_id)
+
+    @staticmethod
+    def get_deposit_by_payment_id(payment_id):
+        """Get deposit by CloudPaya payment_id."""
+        if not payment_id:
+            return None
+        return Deposit.query.filter_by(payment_id=payment_id).first()
+
+    @staticmethod
+    def create_cloudpaya_deposit(user_id, raw_amount, network):
+        """Create a deposit via CloudPaya and persist a pending record."""
+        amount = DepositService._to_decimal(raw_amount)
+
+        if amount <= 0:
+            raise ValueError('Amount must be greater than 0.')
+
+        allowed_networks = {'TRC20', 'ERC20', 'BEP20'}
+        network = (network or '').strip().upper()
+        if network not in allowed_networks:
+            raise ValueError('Invalid network selected.')
+
+        api_key = current_app.config.get('CLOUDPAYA_API_KEY')
+        api_url = current_app.config.get('CLOUDPAYA_API_URL')
+        callback_url = current_app.config.get('CLOUDPAYA_CALLBACK_URL') or 'https://tnno1111.onrender.com/webhook'
+        success_url = current_app.config.get('CLOUDPAYA_SUCCESS_URL') or 'https://tnno1111.onrender.com/success'
+
+        if not api_key or not api_url:
+            raise RuntimeError('CloudPaya API is not configured.')
+
+        headers = {
+            'Authorization': f'Bearer {api_key}',
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+        }
+
+        payload = {
+            'currency': 'USDT',
+            'network': network,
+            'amount': float(amount),
+            'callback_url': callback_url,
+            'success_url': success_url,
+        }
+
+        response = requests.post(api_url, json=payload, headers=headers, timeout=30)
+        if response.status_code >= 400:
+            raise RuntimeError(f'CloudPaya API error: {response.status_code} {response.text}')
+
+        data = response.json()
+        payment_id = (
+            data.get('payment_id')
+            or data.get('paymentId')
+            or data.get('id')
+            or data.get('reference')
+        )
+        payment_url = data.get('payment_url') or data.get('checkout_url') or data.get('url')
+
+        if not payment_id or not payment_url:
+            raise RuntimeError('CloudPaya API response missing payment_id or payment_url.')
+
+        deposit = Deposit(
+            user_id=user_id,
+            amount=float(amount),
+            network=network,
+            payment_id=payment_id,
+            status='pending',
+            created_at=datetime.utcnow(),
+        )
+        db.session.add(deposit)
+        db.session.commit()
+
+        return deposit, payment_url
+
+    @staticmethod
+    def complete_deposit_payment(payment_id, incoming_status):
+        """Complete a deposit when CloudPaya confirms payment."""
+        deposit = Deposit.query.filter_by(payment_id=payment_id).first()
+        if not deposit:
+            raise LookupError('Deposit not found.')
+
+        if incoming_status.strip().lower() != 'confirmed':
+            return deposit
+
+        if deposit.status == 'completed':
+            return deposit
+
+        tnno_rate = int(current_app.config.get('USDT_TO_POINTS') or 4000)
+        tnno_amount = int(float(deposit.amount) * tnno_rate)
+
+        user = deposit.user
+        user.coins = (user.coins or 0) + tnno_amount
+        deposit.status = 'completed'
+        deposit.coins_added = tnno_amount
+        deposit.credited_at = datetime.utcnow()
+
+        db.session.add(user)
+        db.session.add(deposit)
+        db.session.commit()
+        return deposit
 
     @staticmethod
     def get_pending_deposits(limit=3000):

@@ -134,7 +134,7 @@ def register_blueprints(app):
     """Register all Flask blueprints"""
     from app.routes.auth import auth_bp
     from app.routes.missions import missions_bp
-    from app.routes.deposit import deposit_bp
+    from app.routes.deposit import cloudpaya_bp, deposit_bp
     from app.routes.feed import feed_bp
     from app.routes.admin import admin_bp
     from app.routes.profile import profile_bp
@@ -148,6 +148,7 @@ def register_blueprints(app):
     app.register_blueprint(auth_bp)
     app.register_blueprint(missions_bp, url_prefix='/missions')
     app.register_blueprint(deposit_bp, url_prefix='/deposit')
+    app.register_blueprint(cloudpaya_bp)
     app.register_blueprint(feed_bp, url_prefix='/feed')
     app.register_blueprint(admin_bp, url_prefix='/admin')
     app.register_blueprint(profile_bp, url_prefix='/profile')

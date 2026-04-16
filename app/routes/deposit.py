@@ -16,6 +16,7 @@ from app.utils import generate_qr_code
 
 
 deposit_bp = Blueprint('deposit', __name__)
+cloudpaya_bp = Blueprint('cloudpaya', __name__)
 
 
 def _to_decimal(value) -> Decimal:
@@ -28,6 +29,74 @@ def _to_decimal(value) -> Decimal:
 def _format_usdt(value) -> str:
     dec = _to_decimal(value)
     return f'{dec.quantize(Decimal("0.000001")):f}'.rstrip('0').rstrip('.')
+
+
+def _normalize_network(network: str) -> str:
+    return (network or '').strip().upper()
+
+
+@cloudpaya_bp.route('/create-deposit', methods=['POST'])
+@login_required
+def create_deposit():
+    """Create a new CloudPaya deposit and redirect the user to the payment URL."""
+    amount = (request.form.get('amount') or '').strip()
+    network = _normalize_network(request.form.get('network') or '')
+
+    try:
+        deposit, payment_url = DepositService.create_cloudpaya_deposit(
+            user_id=current_user.id,
+            raw_amount=amount,
+            network=network,
+        )
+    except ValueError as exc:
+        flash(str(exc), 'error')
+        return redirect(url_for('deposit.index'))
+    except RuntimeError as exc:
+        flash(str(exc), 'error')
+        return redirect(url_for('deposit.index'))
+
+    return redirect(payment_url)
+
+
+@cloudpaya_bp.route('/webhook', methods=['POST'])
+def webhook():
+    """Handle CloudPaya webhook callbacks to finalize deposit crediting."""
+    payload = request.get_json(silent=True)
+    if payload is None:
+        return jsonify({'error': 'Invalid JSON payload.'}), 400
+
+    payment_id = (
+        payload.get('payment_id')
+        or payload.get('paymentId')
+        or payload.get('id')
+        or payload.get('reference')
+    )
+    status = (
+        payload.get('status')
+        or payload.get('payment_status')
+        or payload.get('transaction_status')
+        or ''
+    ).strip().lower()
+
+    if not payment_id:
+        return jsonify({'error': 'Missing payment_id.'}), 400
+
+    deposit = DepositService.get_deposit_by_payment_id(payment_id)
+    if not deposit:
+        return jsonify({'error': 'Deposit not found.'}), 404
+
+    try:
+        if status == 'confirmed':
+            DepositService.complete_deposit_payment(payment_id, status)
+    except Exception as exc:
+        return jsonify({'error': str(exc)}), 500
+
+    return 'ok', 200
+
+
+@cloudpaya_bp.route('/success')
+def success():
+    return render_template('deposit/success.html')
 
 
 @deposit_bp.route('/')
@@ -58,22 +127,9 @@ def index():
 @deposit_bp.route('/create', methods=['POST'])
 @login_required
 def create():
-    """Create deposit request and redirect user to payment page."""
-    raw_amount = (request.form.get('amount') or '').strip()
-    coin_type = (request.form.get('coin_type') or 'USDT').strip().upper()
-    allowed = set(current_app.config.get('ALLOWED_DEPOSIT_COINS', ()))
-    if allowed and coin_type not in allowed:
-        flash('Invalid coin type selected', 'error')
-        return redirect(url_for('deposit.index'))
-
-    try:
-        deposit = DepositService.create_deposit(current_user.id, raw_amount, coin_type)
-    except ValueError as exc:
-        flash(str(exc), 'error')
-        return redirect(url_for('deposit.index'))
-
-    flash('Deposit request created. Please send the exact amount before it expires.', 'success')
-    return redirect(url_for('deposit.view', deposit_id=deposit.id))
+    """Legacy deposit creation is disabled. Use CloudPaya deposit flow."""
+    flash('Legacy deposit creation is disabled. Please use the new deposit form.', 'warning')
+    return redirect(url_for('deposit.index'))
 
 
 @deposit_bp.route('/<int:deposit_id>')

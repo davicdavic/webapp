@@ -314,14 +314,17 @@ class Deposit(db.Model):
     
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
-    coin_type = db.Column(db.String(20), default='USDT', nullable=False)  # USDT, BNB, BUSD, USDC
-    usdt_amount = db.Column(db.Float, nullable=False)  # User-entered amount
-    expected_amount = db.Column(db.Numeric(24, 6), nullable=True, index=True)  # Unique amount to pay
-    points_amount = db.Column(db.Integer, nullable=False)  # Coins to credit
+    amount = db.Column(db.Float, nullable=False)  # Amount in USDT for CloudPaya deposit
+    network = db.Column(db.String(20), nullable=False)  # TRC20, ERC20, BEP20
+    payment_id = db.Column(db.String(255), unique=True, nullable=False, index=True)
+    coin_type = db.Column(db.String(20), default='USDT', nullable=False)  # Legacy support: USDT, BNB, BUSD, USDC
+    usdt_amount = db.Column(db.Float, nullable=True)  # Legacy field for older deposit records
+    expected_amount = db.Column(db.Numeric(24, 6), nullable=True, index=True)  # Legacy unique amount to pay
+    points_amount = db.Column(db.Integer, nullable=True)  # Legacy coins to credit
     tx_hash = db.Column(db.String(100), nullable=True)
-    status = db.Column(db.String(20), default='pending', index=True)  # pending, success, expired
+    status = db.Column(db.String(20), default='pending', index=True)  # pending, completed, expired
     is_archived = db.Column(db.Boolean, default=False, index=True)
-    blockchain_status = db.Column(db.String(20), default='unverified')  # unverified, verified, expired
+    blockchain_status = db.Column(db.String(20), default='unverified')  # Legacy blockchain status
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     expires_at = db.Column(db.DateTime, nullable=True, index=True)
     verified_at = db.Column(db.DateTime, nullable=True)
@@ -343,6 +346,9 @@ class Deposit(db.Model):
         return {
             'id': self.id,
             'user_id': self.user_id,
+            'amount': self.amount,
+            'network': self.network,
+            'payment_id': self.payment_id,
             'coin_type': self.coin_type,
             'usdt_amount': self.usdt_amount,
             'expected_amount': expected_amount,

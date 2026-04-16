@@ -106,11 +106,18 @@ class Config:
     SESSION_KEY_PREFIX = os.environ.get('SESSION_KEY_PREFIX') or 'retroquest:session:'
 
     # Blockchain Configuration
-    START_BLOCKCHAIN_CHECKER = os.environ.get('START_BLOCKCHAIN_CHECKER', '1').lower() in ('1', 'true', 'yes', 'on')
+    START_BLOCKCHAIN_CHECKER = os.environ.get('START_BLOCKCHAIN_CHECKER', '0').lower() in ('1', 'true', 'yes', 'on')
     # Alchemy RPC endpoint for BNB Smart Chain
     BSC_RPC = os.environ.get('BSC_RPC') or 'https://bnb-mainnet.g.alchemy.com/v2/u1fXOEj6HM0QZhHGnXe3b'
     # Fallback RPC
     BSC_RPC_FALLBACK = os.environ.get('BSC_RPC_FALLBACK') or 'https://bsc-dataseed.binance.org/'
+
+    # CloudPaya payment gateway configuration
+    CLOUDPAYA_API_KEY = os.environ.get('CLOUDPAYA_API_KEY')
+    CLOUDPAYA_API_URL = os.environ.get('CLOUDPAYA_API_URL') or 'https://api.cloudpaya.com/v1/payments'
+    CLOUDPAYA_CALLBACK_URL = os.environ.get('CLOUDPAYA_CALLBACK_URL') or 'https://tnno1111.onrender.com/webhook'
+    CLOUDPAYA_SUCCESS_URL = os.environ.get('CLOUDPAYA_SUCCESS_URL') or 'https://tnno1111.onrender.com/success'
+    CLOUDPAYA_WEBHOOK_SECRET = os.environ.get('CLOUDPAYA_WEBHOOK_SECRET')
     
     # Wallet Configuration
     WALLET_ADDRESS = os.environ.get('WALLET_ADDRESS') or '0x907049603cf15E888327e67BB56C7AAE0ED638Fb'
