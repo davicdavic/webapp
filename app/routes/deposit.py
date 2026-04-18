@@ -6,17 +6,21 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+import hashlib
+import hmac
+import json
 
 from flask import Blueprint, current_app, flash, jsonify, redirect, render_template, request, url_for
 from flask_login import login_required, current_user
 
+from app.extensions import db
 from app.services import DepositService
 from app.services.history_service import HistoryService
 from app.utils import generate_qr_code
 
 
 deposit_bp = Blueprint('deposit', __name__)
-cloudpaya_bp = Blueprint('cloudpaya', __name__)
+nowpayments_bp = Blueprint('nowpayments', __name__)
 
 
 def _to_decimal(value) -> Decimal:
@@ -35,15 +39,15 @@ def _normalize_network(network: str) -> str:
     return (network or '').strip().upper()
 
 
-@cloudpaya_bp.route('/create-deposit', methods=['POST'])
+@nowpayments_bp.route('/create-deposit', methods=['POST'])
 @login_required
 def create_deposit():
-    """Create a new CloudPaya deposit and redirect the user to the payment URL."""
+    """Create a new NowPayments deposit and redirect the user to the payment URL."""
     amount = (request.form.get('amount') or '').strip()
     network = _normalize_network(request.form.get('network') or '')
 
     try:
-        deposit, payment_url = DepositService.create_cloudpaya_deposit(
+        deposit, payment_url = DepositService.create_nowpayments_deposit(
             user_id=current_user.id,
             raw_amount=amount,
             network=network,
@@ -58,23 +62,51 @@ def create_deposit():
     return redirect(payment_url)
 
 
-@cloudpaya_bp.route('/webhook', methods=['POST'])
+def _sort_object(obj):
+    if isinstance(obj, dict):
+        return {k: _sort_object(obj[k]) for k in sorted(obj)}
+    if isinstance(obj, list):
+        return [_sort_object(item) for item in obj]
+    return obj
+
+
+def _verify_nowpayments_signature(request, secret):
+    signature = request.headers.get('X-NowPayments-Sig') or request.headers.get('x-nowpayments-sig')
+    if not signature or not secret:
+        return False
+
+    body_bytes = request.get_data()
+    try:
+        payload = json.loads(body_bytes.decode('utf-8'))
+    except Exception:
+        return False
+
+    sorted_json = json.dumps(_sort_object(payload), separators=(',', ':'), ensure_ascii=False)
+    computed = hmac.new(secret.encode(), sorted_json.encode('utf-8'), hashlib.sha512).hexdigest()
+    return hmac.compare_digest(computed, signature)
+
+
+@nowpayments_bp.route('/webhook', methods=['POST'])
 def webhook():
-    """Handle CloudPaya webhook callbacks to finalize deposit crediting."""
+    """Handle NowPayments webhook callbacks to finalize deposit crediting."""
+    secret = current_app.config.get('NOWPAYMENTS_IPN_SECRET')
+    if secret:
+        if not _verify_nowpayments_signature(request, secret):
+            return jsonify({'error': 'Invalid signature.'}), 403
+
     payload = request.get_json(silent=True)
     if payload is None:
         return jsonify({'error': 'Invalid JSON payload.'}), 400
 
     payment_id = (
         payload.get('payment_id')
-        or payload.get('paymentId')
         or payload.get('id')
+        or payload.get('order_id')
         or payload.get('reference')
     )
-    status = (
-        payload.get('status')
-        or payload.get('payment_status')
-        or payload.get('transaction_status')
+    payment_status = (
+        payload.get('payment_status')
+        or payload.get('status')
         or ''
     ).strip().lower()
 
@@ -86,15 +118,19 @@ def webhook():
         return jsonify({'error': 'Deposit not found.'}), 404
 
     try:
-        if status == 'confirmed':
-            DepositService.complete_deposit_payment(payment_id, status)
+        if payment_status in ('finished', 'partially_paid'):
+            DepositService.complete_deposit_payment(payment_id, payment_status)
+        elif payment_status in ('canceled', 'expired', 'failed'):
+            deposit.status = 'expired'
+            db.session.add(deposit)
+            db.session.commit()
     except Exception as exc:
         return jsonify({'error': str(exc)}), 500
 
     return 'ok', 200
 
 
-@cloudpaya_bp.route('/success')
+@nowpayments_bp.route('/success')
 def success():
     return render_template('deposit/success.html')
 
@@ -127,7 +163,7 @@ def index():
 @deposit_bp.route('/create', methods=['POST'])
 @login_required
 def create():
-    """Legacy deposit creation is disabled. Use CloudPaya deposit flow."""
+    """Legacy deposit creation is disabled. Use NowPayments deposit flow."""
     flash('Legacy deposit creation is disabled. Please use the new deposit form.', 'warning')
     return redirect(url_for('deposit.index'))
 

@@ -314,7 +314,7 @@ class Deposit(db.Model):
     
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
-    amount = db.Column(db.Float, nullable=False)  # Amount in USDT for CloudPaya deposit
+    amount = db.Column(db.Float, nullable=False)  # Amount in USDT for a deposit
     network = db.Column(db.String(20), nullable=False)  # TRC20, ERC20, BEP20
     payment_id = db.Column(db.String(255), unique=True, nullable=False, index=True)
     coin_type = db.Column(db.String(20), default='USDT', nullable=False)  # Legacy support: USDT, BNB, BUSD, USDC

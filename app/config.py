@@ -112,12 +112,13 @@ class Config:
     # Fallback RPC
     BSC_RPC_FALLBACK = os.environ.get('BSC_RPC_FALLBACK') or 'https://bsc-dataseed.binance.org/'
 
-    # CloudPaya payment gateway configuration
-    CLOUDPAYA_API_KEY = os.environ.get('CLOUDPAYA_API_KEY')
-    CLOUDPAYA_API_URL = os.environ.get('CLOUDPAYA_API_URL') or 'https://api.cloudpaya.com/v1/payments'
-    CLOUDPAYA_CALLBACK_URL = os.environ.get('CLOUDPAYA_CALLBACK_URL') or 'https://tnno1111.onrender.com/webhook'
-    CLOUDPAYA_SUCCESS_URL = os.environ.get('CLOUDPAYA_SUCCESS_URL') or 'https://tnno1111.onrender.com/success'
-    CLOUDPAYA_WEBHOOK_SECRET = os.environ.get('CLOUDPAYA_WEBHOOK_SECRET')
+    # NowPayments payment gateway configuration
+    NOWPAYMENTS_API_KEY = os.environ.get('NOWPAYMENTS_API_KEY') or '98Z3XE1-RG74GVJ-JM8T50A-C18943N'
+    NOWPAYMENTS_API_URL = os.environ.get('NOWPAYMENTS_API_URL') or 'https://api.nowpayments.io/v1/payment'
+    NOWPAYMENTS_IPN_SECRET = os.environ.get('NOWPAYMENTS_IPN_SECRET')
+    NOWPAYMENTS_CALLBACK_URL = os.environ.get('NOWPAYMENTS_CALLBACK_URL') or 'https://tnno1111.onrender.com/webhook'
+    NOWPAYMENTS_SUCCESS_URL = os.environ.get('NOWPAYMENTS_SUCCESS_URL') or 'https://tnno1111.onrender.com/success'
+    NOWPAYMENTS_CANCEL_URL = os.environ.get('NOWPAYMENTS_CANCEL_URL') or 'https://tnno1111.onrender.com/deposit'
     
     # Wallet Configuration
     WALLET_ADDRESS = os.environ.get('WALLET_ADDRESS') or '0x907049603cf15E888327e67BB56C7AAE0ED638Fb'

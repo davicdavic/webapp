@@ -224,14 +224,14 @@ class DepositService:
 
     @staticmethod
     def get_deposit_by_payment_id(payment_id):
-        """Get deposit by CloudPaya payment_id."""
+        """Get deposit by payment_id."""
         if not payment_id:
             return None
         return Deposit.query.filter_by(payment_id=payment_id).first()
 
     @staticmethod
-    def create_cloudpaya_deposit(user_id, raw_amount, network):
-        """Create a deposit via CloudPaya and persist a pending record."""
+    def create_nowpayments_deposit(user_id, raw_amount, network):
+        """Create a deposit via NowPayments and persist a pending record."""
         amount = DepositService._to_decimal(raw_amount)
 
         if amount <= 0:
@@ -242,43 +242,60 @@ class DepositService:
         if network not in allowed_networks:
             raise ValueError('Invalid network selected.')
 
-        api_key = current_app.config.get('CLOUDPAYA_API_KEY')
-        api_url = current_app.config.get('CLOUDPAYA_API_URL')
-        callback_url = current_app.config.get('CLOUDPAYA_CALLBACK_URL') or 'https://tnno1111.onrender.com/webhook'
-        success_url = current_app.config.get('CLOUDPAYA_SUCCESS_URL') or 'https://tnno1111.onrender.com/success'
+        api_key = current_app.config.get('NOWPAYMENTS_API_KEY')
+        api_url = current_app.config.get('NOWPAYMENTS_API_URL')
+        callback_url = current_app.config.get('NOWPAYMENTS_CALLBACK_URL') or 'https://tnno1111.onrender.com/webhook'
+        success_url = current_app.config.get('NOWPAYMENTS_SUCCESS_URL') or 'https://tnno1111.onrender.com/success'
+        cancel_url = current_app.config.get('NOWPAYMENTS_CANCEL_URL') or 'https://tnno1111.onrender.com/deposit'
 
         if not api_key or not api_url:
-            raise RuntimeError('CloudPaya API is not configured.')
+            raise RuntimeError('NowPayments API is not configured.')
+
+        network_map = {
+            'TRC20': 'tron',
+            'ERC20': 'ethereum',
+            'BEP20': 'bep20',
+        }
+        pay_network = network_map.get(network)
 
         headers = {
-            'Authorization': f'Bearer {api_key}',
+            'x-api-key': api_key,
             'Content-Type': 'application/json',
             'Accept': 'application/json',
         }
 
         payload = {
-            'currency': 'USDT',
-            'network': network,
-            'amount': float(amount),
-            'callback_url': callback_url,
+            'price_amount': float(amount),
+            'price_currency': 'usdt',
+            'pay_currency': 'usdt',
+            'pay_currency_network': pay_network,
+            'order_id': f'deposit-{user_id}-{int(datetime.utcnow().timestamp())}',
+            'order_description': 'RetroQuest USDT deposit',
+            'ipn_callback_url': callback_url,
             'success_url': success_url,
+            'cancel_url': cancel_url,
         }
 
         response = requests.post(api_url, json=payload, headers=headers, timeout=30)
         if response.status_code >= 400:
-            raise RuntimeError(f'CloudPaya API error: {response.status_code} {response.text}')
+            raise RuntimeError(f'NowPayments API error: {response.status_code} {response.text}')
 
         data = response.json()
         payment_id = (
             data.get('payment_id')
-            or data.get('paymentId')
             or data.get('id')
             or data.get('reference')
+            or data.get('order_id')
         )
-        payment_url = data.get('payment_url') or data.get('checkout_url') or data.get('url')
+        payment_url = (
+            data.get('payment_url')
+            or data.get('invoice_url')
+            or data.get('url')
+            or data.get('checkout_url')
+        )
 
         if not payment_id or not payment_url:
-            raise RuntimeError('CloudPaya API response missing payment_id or payment_url.')
+            raise RuntimeError('NowPayments API response missing payment_id or payment_url.')
 
         deposit = Deposit(
             user_id=user_id,
@@ -295,12 +312,13 @@ class DepositService:
 
     @staticmethod
     def complete_deposit_payment(payment_id, incoming_status):
-        """Complete a deposit when CloudPaya confirms payment."""
+        """Complete a deposit when a payment provider confirms payment."""
         deposit = Deposit.query.filter_by(payment_id=payment_id).first()
         if not deposit:
             raise LookupError('Deposit not found.')
 
-        if incoming_status.strip().lower() != 'confirmed':
+        status = incoming_status.strip().lower()
+        if status not in ('confirmed', 'finished', 'partially_paid'):
             return deposit
 
         if deposit.status == 'completed':
