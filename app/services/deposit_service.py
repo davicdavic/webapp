@@ -242,6 +242,14 @@ class DepositService:
         if network not in allowed_networks:
             raise ValueError('Invalid network selected.')
 
+        # Map network to NowPayments currency code
+        currency_map = {
+            'TRC20': 'usdttrc20',
+            'ERC20': 'usdterc20',
+            'BEP20': 'usdtbep20',
+        }
+        pay_currency = currency_map[network]
+
         api_key = current_app.config.get('NOWPAYMENTS_API_KEY')
         api_url = current_app.config.get('NOWPAYMENTS_API_URL')
         callback_url = current_app.config.get('NOWPAYMENTS_CALLBACK_URL') or 'https://tnno1111.onrender.com/webhook'
@@ -259,10 +267,10 @@ class DepositService:
 
         payload = {
             'price_amount': float(amount),
-            'price_currency': 'usdt',
-            'pay_currency': 'usdt',
+            'price_currency': 'usd',
+            'pay_currency': pay_currency,
             'order_id': f'deposit-{user_id}-{int(datetime.utcnow().timestamp())}',
-            'order_description': 'RetroQuest USDT deposit',
+            'order_description': f'RetroQuest USD deposit via {network}',
             'ipn_callback_url': callback_url,
             'success_url': success_url,
             'cancel_url': cancel_url,
