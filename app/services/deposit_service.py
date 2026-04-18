@@ -281,9 +281,17 @@ class DepositService:
             raise RuntimeError(f'NowPayments API error: {response.status_code} {response.text}')
 
         data = response.json()
+
+        # Check if the API returned an error status
+        if data.get('status') is False:
+            error_code = data.get('code', 'UNKNOWN_ERROR')
+            error_message = data.get('message', 'Unknown error from NowPayments API')
+            raise RuntimeError(f'NowPayments API error: {error_code} - {error_message}')
+
         payment_id = (
             data.get('payment_id')
             or data.get('id')
+            or data.get('token_id')
             or data.get('reference')
             or data.get('order_id')
         )
