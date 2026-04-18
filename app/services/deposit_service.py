@@ -34,6 +34,8 @@ class DepositService:
         existing_columns = {col['name'] for col in inspector.get_columns('deposits')}
         alter_statements = []
 
+        if 'network' not in existing_columns:
+            alter_statements.append("ALTER TABLE deposits ADD COLUMN network VARCHAR(20) NOT NULL DEFAULT 'TRC20'")
         if 'expected_amount' not in existing_columns:
             alter_statements.append('ALTER TABLE deposits ADD COLUMN expected_amount NUMERIC(24, 6)')
         if 'expires_at' not in existing_columns:
@@ -232,6 +234,8 @@ class DepositService:
     @staticmethod
     def create_nowpayments_deposit(user_id, raw_amount, network):
         """Create a deposit via NowPayments and persist a pending record."""
+        DepositService.ensure_deposit_schema()
+
         amount = DepositService._to_decimal(raw_amount)
 
         if amount <= 0:
@@ -246,7 +250,7 @@ class DepositService:
         currency_map = {
             'TRC20': 'usdttrc20',
             'ERC20': 'usdterc20',
-            'BEP20': 'usdtbep20',
+            'BEP20': 'usdtbsc',
         }
         pay_currency = currency_map[network]
 
@@ -305,12 +309,18 @@ class DepositService:
         if not payment_id or not payment_url:
             raise RuntimeError('NowPayments API response missing payment_id or payment_url.')
 
+        # Get the expected pay amount from response
+        expected_amount = data.get('pay_amount')
+        if expected_amount:
+            expected_amount = Decimal(str(expected_amount))
+
         deposit = Deposit(
             user_id=user_id,
             amount=float(amount),
             network=network,
             payment_id=payment_id,
             status='pending',
+            expected_amount=expected_amount,
             created_at=datetime.utcnow(),
         )
         db.session.add(deposit)
