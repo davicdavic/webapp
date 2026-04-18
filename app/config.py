@@ -113,7 +113,7 @@ class Config:
     # NowPayments payment gateway configuration
     NOWPAYMENTS_API_KEY = os.environ.get('NOWPAYMENTS_API_KEY') or '98Z3XE1-RG74GVJ-JM8T50A-C18943N'
     NOWPAYMENTS_API_URL = os.environ.get('NOWPAYMENTS_API_URL') or 'https://api.nowpayments.io/v1/invoice'
-    NOWPAYMENTS_IPN_SECRET = os.environ.get('NOWPAYMENTS_IPN_SECRET')
+    NOWPAYMENTS_IPN_SECRET = os.environ.get('NOWPAYMENTS_IPN_SECRET') or 'DxSy2thJ7uyjQZ6Kukvs12PfmoF04lqV'
     NOWPAYMENTS_CALLBACK_URL = os.environ.get('NOWPAYMENTS_CALLBACK_URL') or 'https://tnno1111.onrender.com/webhook'
     NOWPAYMENTS_SUCCESS_URL = os.environ.get('NOWPAYMENTS_SUCCESS_URL') or 'https://tnno1111.onrender.com/success'
     NOWPAYMENTS_CANCEL_URL = os.environ.get('NOWPAYMENTS_CANCEL_URL') or 'https://tnno1111.onrender.com/deposit'
