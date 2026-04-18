@@ -105,11 +105,9 @@ class Config:
     SESSION_USE_SIGNER = True
     SESSION_KEY_PREFIX = os.environ.get('SESSION_KEY_PREFIX') or 'retroquest:session:'
 
-    # Blockchain Configuration
-    START_BLOCKCHAIN_CHECKER = os.environ.get('START_BLOCKCHAIN_CHECKER', '0').lower() in ('1', 'true', 'yes', 'on')
-    # Alchemy RPC endpoint for BNB Smart Chain
+    # Blockchain Configuration (disabled - using NowPayments)
+    START_BLOCKCHAIN_CHECKER = False  # Disabled for NowPayments integration
     BSC_RPC = os.environ.get('BSC_RPC') or 'https://bnb-mainnet.g.alchemy.com/v2/u1fXOEj6HM0QZhHGnXe3b'
-    # Fallback RPC
     BSC_RPC_FALLBACK = os.environ.get('BSC_RPC_FALLBACK') or 'https://bsc-dataseed.binance.org/'
 
     # NowPayments payment gateway configuration

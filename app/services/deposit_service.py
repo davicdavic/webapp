@@ -251,13 +251,6 @@ class DepositService:
         if not api_key or not api_url:
             raise RuntimeError('NowPayments API is not configured.')
 
-        network_map = {
-            'TRC20': 'tron',
-            'ERC20': 'ethereum',
-            'BEP20': 'bep20',
-        }
-        pay_network = network_map.get(network)
-
         headers = {
             'x-api-key': api_key,
             'Content-Type': 'application/json',
@@ -268,7 +261,6 @@ class DepositService:
             'price_amount': float(amount),
             'price_currency': 'usdt',
             'pay_currency': 'usdt',
-            'pay_currency_network': pay_network,
             'order_id': f'deposit-{user_id}-{int(datetime.utcnow().timestamp())}',
             'order_description': 'RetroQuest USDT deposit',
             'ipn_callback_url': callback_url,
