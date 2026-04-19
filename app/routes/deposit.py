@@ -39,12 +39,41 @@ def _normalize_network(network: str) -> str:
     return (network or '').strip().upper()
 
 
+def _is_json_request() -> bool:
+    accept_header = request.headers.get('Accept', '')
+    return (
+        request.is_json or
+        'application/json' in accept_header.lower() or
+        request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+    )
+
+
+def _json_error(message: str, status: int = 400):
+    current_app.logger.error('Deposit route error: %s', message)
+    print(f'Deposit route error: {message}')
+    return jsonify({'error': message}), status
+
+
 @nowpayments_bp.route('/create-deposit', methods=['POST'])
 @login_required
 def create_deposit():
     """Create a new NowPayments deposit and redirect the user to the payment URL."""
     amount = (request.form.get('amount') or '').strip()
     network = _normalize_network(request.form.get('network') or '')
+
+    if not amount:
+        message = 'Missing deposit amount.'
+        if _is_json_request():
+            return _json_error(message, 400)
+        flash(message, 'error')
+        return redirect(url_for('deposit.index'))
+
+    if not network:
+        message = 'Missing deposit network selection.'
+        if _is_json_request():
+            return _json_error(message, 400)
+        flash(message, 'error')
+        return redirect(url_for('deposit.index'))
 
     try:
         deposit, payment_url = DepositService.create_nowpayments_deposit(
@@ -53,11 +82,26 @@ def create_deposit():
             network=network,
         )
     except ValueError as exc:
-        flash(str(exc), 'error')
+        message = str(exc) or 'Invalid deposit request.'
+        if _is_json_request():
+            return _json_error(message, 400)
+        flash(message, 'error')
         return redirect(url_for('deposit.index'))
     except RuntimeError as exc:
-        flash(str(exc), 'error')
+        message = str(exc) or 'Unable to create deposit.'
+        if _is_json_request():
+            return _json_error(message, 502)
+        flash(message, 'error')
         return redirect(url_for('deposit.index'))
+    except Exception as exc:
+        current_app.logger.exception('Unexpected deposit creation failure')
+        if _is_json_request():
+            return _json_error('Internal server error while creating deposit.', 500)
+        flash('Internal server error while creating deposit.', 'error')
+        return redirect(url_for('deposit.index'))
+
+    if _is_json_request():
+        return jsonify({'status': 'success', 'payment_url': payment_url}), 200
 
     return redirect(payment_url)
 

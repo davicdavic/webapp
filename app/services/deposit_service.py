@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation, ROUND_DOWN
 
 import requests
-from flask import current_app
+from flask import current_app, request, url_for
 from sqlalchemy import inspect, text
 
 from app.extensions import db
@@ -256,12 +256,20 @@ class DepositService:
 
         api_key = current_app.config.get('NOWPAYMENTS_API_KEY')
         api_url = current_app.config.get('NOWPAYMENTS_API_URL')
-        callback_url = current_app.config.get('NOWPAYMENTS_CALLBACK_URL') or 'https://tnno1111.onrender.com/webhook'
-        success_url = current_app.config.get('NOWPAYMENTS_SUCCESS_URL') or 'https://tnno1111.onrender.com/success'
-        cancel_url = current_app.config.get('NOWPAYMENTS_CANCEL_URL') or 'https://tnno1111.onrender.com/deposit'
+        callback_url = current_app.config.get('NOWPAYMENTS_CALLBACK_URL')
+        success_url = current_app.config.get('NOWPAYMENTS_SUCCESS_URL')
+        cancel_url = current_app.config.get('NOWPAYMENTS_CANCEL_URL')
 
         if not api_key or not api_url:
-            raise RuntimeError('NowPayments API is not configured.')
+            raise RuntimeError('NowPayments API is not configured. Check NOWPAYMENTS_API_KEY and NOWPAYMENTS_API_URL.')
+
+        # Use explicit configuration when available. Fallback to the current host if no external URL is provided.
+        if not callback_url:
+            callback_url = url_for('nowpayments.webhook', _external=True)
+        if not success_url:
+            success_url = url_for('nowpayments.success', _external=True)
+        if not cancel_url:
+            cancel_url = url_for('deposit.index', _external=True)
 
         headers = {
             'x-api-key': api_key,
@@ -280,11 +288,16 @@ class DepositService:
             'cancel_url': cancel_url,
         }
 
-        response = requests.post(api_url, json=payload, headers=headers, timeout=30)
-        if response.status_code >= 400:
-            raise RuntimeError(f'NowPayments API error: {response.status_code} {response.text}')
+        try:
+            response = requests.post(api_url, json=payload, headers=headers, timeout=30)
+            response.raise_for_status()
+        except requests.RequestException as exc:
+            raise RuntimeError(f'NowPayments request failed: {exc}')
 
-        data = response.json()
+        try:
+            data = response.json()
+        except ValueError as exc:
+            raise RuntimeError(f'NowPayments returned invalid JSON: {exc}')
 
         # Check if the API returned an error status
         if data.get('status') is False:
@@ -309,18 +322,34 @@ class DepositService:
         if not payment_id or not payment_url:
             raise RuntimeError('NowPayments API response missing payment_id or payment_url.')
 
-        # Get the expected pay amount from response
-        expected_amount = data.get('pay_amount')
-        if expected_amount:
-            expected_amount = Decimal(str(expected_amount))
+        usdt_amount = float(amount)
+        expected_amount = None
+        if data.get('pay_amount') is not None:
+            expected_amount = Decimal(str(data.get('pay_amount')))
+        else:
+            expected_amount = Decimal(str(amount))
+
+        if expected_amount is None:
+            raise RuntimeError('Unable to determine expected deposit amount.')
+
+        to_points = int(current_app.config.get('USDT_TO_POINTS') or 4000)
+        points_amount = int((Decimal(str(usdt_amount)) * Decimal(to_points)).to_integral_value(rounding=ROUND_DOWN))
+
+        if usdt_amount is None:
+            raise RuntimeError('Invalid deposit amount before saving.')
+        if points_amount is None:
+            raise RuntimeError('Unable to calculate deposit points amount.')
 
         deposit = Deposit(
             user_id=user_id,
             amount=float(amount),
+            usdt_amount=usdt_amount,
+            expected_amount=expected_amount,
+            points_amount=points_amount,
             network=network,
             payment_id=payment_id,
             status='pending',
-            expected_amount=expected_amount,
+            coin_type='USDT',
             created_at=datetime.utcnow(),
         )
         db.session.add(deposit)

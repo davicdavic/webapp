@@ -25,6 +25,21 @@ def create_app(config_name=None):
     # Load configuration
     app.config.from_object(config.get(config_name, config['development']))
 
+    if config_name == 'production':
+        missing_env = [
+            name for name in (
+                'SECRET_KEY',
+                'DATABASE_URL',
+                'NOWPAYMENTS_API_KEY',
+                'NOWPAYMENTS_IPN_SECRET',
+            )
+            if not os.environ.get(name)
+        ]
+        if missing_env:
+            raise RuntimeError(
+                'Missing required production environment variables: ' + ', '.join(missing_env)
+            )
+
     # Initialize extensions
     init_extensions(app)
     init_game_state(app)

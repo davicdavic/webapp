@@ -14,17 +14,24 @@ def _bool_env(name: str, default: bool) -> bool:
     return raw.strip().lower() in ('1', 'true', 'yes', 'on')
 
 
+def _env(name: str, default=None):
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value
+
+
 class Config:
     """Base configuration class"""
 
     # Secret Key
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
+    SECRET_KEY = _env('SECRET_KEY') or 'dev-secret-key-change-in-production'
     AUTO_CREATE_SCHEMA_ON_START = _bool_env('AUTO_CREATE_SCHEMA_ON_START', True)
 
     # Database Configuration
     BASE_DIR = os.path.abspath(os.path.dirname(__file__))
     PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, '..'))
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
+    SQLALCHEMY_DATABASE_URI = _env('DATABASE_URL') or \
         f'sqlite:///{os.path.join(BASE_DIR, "..", "instance", "database.db")}'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
@@ -111,12 +118,12 @@ class Config:
     BSC_RPC_FALLBACK = os.environ.get('BSC_RPC_FALLBACK') or 'https://bsc-dataseed.binance.org/'
 
     # NowPayments payment gateway configuration
-    NOWPAYMENTS_API_KEY = os.environ.get('NOWPAYMENTS_API_KEY') or '98Z3XE1-RG74GVJ-JM8T50A-C18943N'
-    NOWPAYMENTS_API_URL = os.environ.get('NOWPAYMENTS_API_URL') or 'https://api.nowpayments.io/v1/invoice'
-    NOWPAYMENTS_IPN_SECRET = os.environ.get('NOWPAYMENTS_IPN_SECRET') or 'DxSy2thJ7uyjQZ6Kukvs12PfmoF04lqV'
-    NOWPAYMENTS_CALLBACK_URL = os.environ.get('NOWPAYMENTS_CALLBACK_URL') or 'https://tnno1111.onrender.com/webhook'
-    NOWPAYMENTS_SUCCESS_URL = os.environ.get('NOWPAYMENTS_SUCCESS_URL') or 'https://tnno1111.onrender.com/success'
-    NOWPAYMENTS_CANCEL_URL = os.environ.get('NOWPAYMENTS_CANCEL_URL') or 'https://tnno1111.onrender.com/deposit'
+    NOWPAYMENTS_API_KEY = _env('NOWPAYMENTS_API_KEY')
+    NOWPAYMENTS_API_URL = _env('NOWPAYMENTS_API_URL') or 'https://api.nowpayments.io/v1/invoice'
+    NOWPAYMENTS_IPN_SECRET = _env('NOWPAYMENTS_IPN_SECRET')
+    NOWPAYMENTS_CALLBACK_URL = _env('NOWPAYMENTS_CALLBACK_URL')
+    NOWPAYMENTS_SUCCESS_URL = _env('NOWPAYMENTS_SUCCESS_URL')
+    NOWPAYMENTS_CANCEL_URL = _env('NOWPAYMENTS_CANCEL_URL')
     
     # Wallet Configuration
     WALLET_ADDRESS = os.environ.get('WALLET_ADDRESS') or '0x907049603cf15E888327e67BB56C7AAE0ED638Fb'
@@ -199,19 +206,25 @@ class ProductionConfig(Config):
     TESTING = False
     AUTO_CREATE_SCHEMA_ON_START = _bool_env('AUTO_CREATE_SCHEMA_ON_START', True)
 
-    # Database URI for production (use /tmp for SQLite if no DATABASE_URL)
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'sqlite:////tmp/database.db'
+    # In production, use DATABASE_URL from the environment. Do not silently fall back to SQLite.
+    SQLALCHEMY_DATABASE_URI = _env('DATABASE_URL') or ''
 
     SESSION_COOKIE_SECURE = True
     REMEMBER_COOKIE_SECURE = True
 
     # Use Redis for caching/session/game-state in production
-    CACHE_TYPE = os.environ.get('CACHE_TYPE') or 'redis'
+    CACHE_TYPE = _env('CACHE_TYPE') or 'redis'
     ENABLE_SERVER_SIDE_SESSIONS = _bool_env('ENABLE_SERVER_SIDE_SESSIONS', True)
-    GAME_STATE_BACKEND = os.environ.get('GAME_STATE_BACKEND') or 'redis'
+    GAME_STATE_BACKEND = _env('GAME_STATE_BACKEND') or 'redis'
+
+    NOWPAYMENTS_API_KEY = _env('NOWPAYMENTS_API_KEY')
+    NOWPAYMENTS_IPN_SECRET = _env('NOWPAYMENTS_IPN_SECRET')
+    NOWPAYMENTS_CALLBACK_URL = _env('NOWPAYMENTS_CALLBACK_URL')
+    NOWPAYMENTS_SUCCESS_URL = _env('NOWPAYMENTS_SUCCESS_URL')
+    NOWPAYMENTS_CANCEL_URL = _env('NOWPAYMENTS_CANCEL_URL')
 
     # Database connection pool for production
-    if 'sqlite' in os.environ.get('DATABASE_URL', '') or not os.environ.get('DATABASE_URL'):
+    if 'sqlite' in _env('DATABASE_URL', '') or not _env('DATABASE_URL'):
         SQLALCHEMY_ENGINE_OPTIONS = {
             'pool_pre_ping': True,
         }
