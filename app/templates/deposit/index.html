@@ -16,7 +16,7 @@ Deposit - RetroQuest
             <h2 class="px-panel-title">Create Deposit</h2>
         </div>
 
-        <form method="POST" action="/create-deposit" id="depositForm">
+        <form method="POST" action="/create-deposit" id="depositForm" data-turbo="false" target="_top">
             <div class="px-form-group">
                 <label class="px-label" for="amount">Amount (USDT)</label>
                 <input
@@ -46,6 +46,15 @@ Deposit - RetroQuest
 
             <button type="submit" class="px-btn px-btn-primary px-btn-lg" style="width: 100%; margin-top: 16px;">Create Deposit</button>
         </form>
+
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const depositForm = document.getElementById('depositForm');
+                if (!depositForm) return;
+                depositForm.setAttribute('data-turbo', 'false');
+                depositForm.setAttribute('target', '_top');
+            });
+        </script>
 
         <div class="px-panel" style="background: var(--px-bg-dark); margin-top: 16px;">
             <h4 style="color: var(--px-orange);">Payment Rules</h4>

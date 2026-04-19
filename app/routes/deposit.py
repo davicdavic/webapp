@@ -103,7 +103,7 @@ def create_deposit():
     if _is_json_request():
         return jsonify({'status': 'success', 'payment_url': payment_url}), 200
 
-    return redirect(payment_url)
+    return redirect(payment_url, code=303)
 
 
 def _sort_object(obj):
