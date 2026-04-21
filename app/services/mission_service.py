@@ -225,16 +225,21 @@ class MissionService:
     @staticmethod
     def get_user_mission_stats(user_id):
         """Get user's mission completion stats"""
-        completed = UserMission.query.filter_by(
-            user_id=user_id, 
-            status='completed'
-        ).count()
-        
-        pending = UserMission.query.filter_by(
-            user_id=user_id, 
-            status='pending'
-        ).count()
-        
+        try:
+            completed = UserMission.query.filter_by(
+                user_id=user_id,
+                status='completed'
+            ).count()
+
+            pending = UserMission.query.filter_by(
+                user_id=user_id,
+                status='pending'
+            ).count()
+        except Exception:
+            db.session.rollback()
+            completed = 0
+            pending = 0
+
         return {
             'completed': completed,
             'pending': pending

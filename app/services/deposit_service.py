@@ -54,8 +54,6 @@ class DepositService:
             alter_statements.append("ALTER TABLE deposits ADD COLUMN coin_type VARCHAR(20) DEFAULT 'USDT'")
         if 'amount' not in existing_columns:
             alter_statements.append('ALTER TABLE deposits ADD COLUMN amount FLOAT NOT NULL DEFAULT 0')
-        if 'network' not in existing_columns:
-            alter_statements.append("ALTER TABLE deposits ADD COLUMN network VARCHAR(20) DEFAULT 'BEP20'")
         if 'payment_id' not in existing_columns:
             alter_statements.append('ALTER TABLE deposits ADD COLUMN payment_id VARCHAR(255)')
         if 'coins_added' not in existing_columns:
@@ -64,8 +62,6 @@ class DepositService:
         if 'blockchain_state' not in inspector.get_table_names():
             alter_statements.append('CREATE TABLE blockchain_state (coin_type VARCHAR(20) PRIMARY KEY, last_block BIGINT NOT NULL DEFAULT 0)')
         # ensure the new coin_type column exists for multi-coin support
-        if 'coin_type' not in existing_columns:
-            alter_statements.append("ALTER TABLE deposits ADD COLUMN coin_type VARCHAR(20) DEFAULT 'USDT'")
         # add seller flag to users if missing (shared patch location)
         user_cols = inspector.get_columns('users')
         user_col_names = {col['name'] for col in user_cols}

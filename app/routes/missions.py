@@ -23,32 +23,41 @@ def index():
     search = request.args.get('search', '').strip()
     page = request.args.get('page', 1, type=int)
     per_page = 10
-    
-    # Build query
-    query = Mission.query.filter_by(status='active')
-    
-    if search:
-        query = query.filter(Mission.title.ilike(f'%{search}%'))
-    
-    # Paginate
-    missions_page = query.order_by(Mission.created_at.desc()).paginate(
-        page=page, per_page=per_page, error_out=False
-    )
-    
-    # Get user submissions
-    user_submissions = UserMission.query.filter_by(
-        user_id=current_user.id
-    ).filter(UserMission.is_archived.is_(False))\
-     .order_by(UserMission.submission_time.desc())\
-     .limit(200)\
-     .all()
-    
-    # Keep only the newest submission per mission
+
+    try:
+        query = Mission.query.filter_by(status='active')
+
+        if search:
+            query = query.filter(Mission.title.ilike(f'%{search}%'))
+
+        missions_page = query.order_by(Mission.created_at.desc()).paginate(
+            page=page, per_page=per_page, error_out=False
+        )
+    except Exception:
+        db.session.rollback()
+        flash('Some mission data is still syncing. Please refresh in a moment.', 'info')
+        missions_page = type('EmptyPagination', (), {'items': [], 'total': 0, 'pages': 0, 'has_next': False, 'has_prev': False})()
+
+    try:
+        user_submissions = UserMission.query.filter_by(
+            user_id=current_user.id
+        ).filter(UserMission.is_archived.is_(False))\
+         .order_by(UserMission.submission_time.desc())\
+         .limit(200)\
+         .all()
+    except Exception:
+        db.session.rollback()
+        user_submissions = UserMission.query.filter_by(
+            user_id=current_user.id
+        ).order_by(UserMission.submission_time.desc())\
+         .limit(200)\
+         .all()
+
     submission_by_mission = {}
     for sub in user_submissions:
         if sub.mission_id not in submission_by_mission:
             submission_by_mission[sub.mission_id] = sub
-    
+
     user_stats = MissionService.get_user_mission_stats(current_user.id)
     
     return render_template('missions/index.html',
@@ -72,22 +81,37 @@ def api_missions():
     page = max(1, page)
     limit = min(50, max(1, limit))
     
-    # Build query
-    query = Mission.query.filter_by(status='active')
-    
-    if search:
-        query = query.filter(Mission.title.ilike(f'%{search}%'))
-    
-    # Paginate
-    missions_page = query.order_by(Mission.created_at.desc()).paginate(
-        page=page, per_page=limit, error_out=False
-    )
-    
-    # Get user submissions
-    submissions = UserMission.query.filter_by(user_id=current_user.id)\
-        .filter(UserMission.is_archived.is_(False))\
-        .order_by(UserMission.submission_time.desc())\
-        .all()
+    try:
+        query = Mission.query.filter_by(status='active')
+
+        if search:
+            query = query.filter(Mission.title.ilike(f'%{search}%'))
+
+        missions_page = query.order_by(Mission.created_at.desc()).paginate(
+            page=page, per_page=limit, error_out=False
+        )
+    except Exception:
+        db.session.rollback()
+        return jsonify({
+            'missions': [],
+            'page': page,
+            'limit': limit,
+            'total': 0,
+            'pages': 0,
+            'has_next': False,
+            'has_prev': False
+        })
+
+    try:
+        submissions = UserMission.query.filter_by(user_id=current_user.id)\
+            .filter(UserMission.is_archived.is_(False))\
+            .order_by(UserMission.submission_time.desc())\
+            .all()
+    except Exception:
+        db.session.rollback()
+        submissions = UserMission.query.filter_by(user_id=current_user.id)\
+            .order_by(UserMission.submission_time.desc())\
+            .all()
     submission_by_mission = {}
     for sub in submissions:
         if sub.mission_id not in submission_by_mission:

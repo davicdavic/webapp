@@ -15,13 +15,16 @@ class MerchService:
         """Best-effort schema patching for merch-related fields."""
         inspector = inspect(db.engine)
         table_names = set(inspector.get_table_names())
+        engine_url = str(db.engine.url).lower()
+        is_postgres = 'postgresql' in engine_url
+        id_column = 'SERIAL PRIMARY KEY' if is_postgres else 'INTEGER PRIMARY KEY AUTOINCREMENT'
 
         alter_statements = []
 
         if 'products' in table_names:
             product_cols = {col['name'] for col in inspector.get_columns('products')}
             if 'product_type' not in product_cols:
-                alter_statements.append('ALTER TABLE products ADD COLUMN product_type VARCHAR(20) DEFAULT \"digital\"')
+                alter_statements.append("ALTER TABLE products ADD COLUMN product_type VARCHAR(20) DEFAULT 'digital'")
             if 'contact_link' not in product_cols:
                 alter_statements.append('ALTER TABLE products ADD COLUMN contact_link VARCHAR(255)')
             if 'physical_quantity' not in product_cols:
@@ -30,7 +33,7 @@ class MerchService:
         if 'merch_orders' in table_names:
             order_cols = {col['name'] for col in inspector.get_columns('merch_orders')}
             if 'product_type' not in order_cols:
-                alter_statements.append('ALTER TABLE merch_orders ADD COLUMN product_type VARCHAR(20) DEFAULT \"digital\"')
+                alter_statements.append("ALTER TABLE merch_orders ADD COLUMN product_type VARCHAR(20) DEFAULT 'digital'")
             if 'shipping_name' not in order_cols:
                 alter_statements.append('ALTER TABLE merch_orders ADD COLUMN shipping_name VARCHAR(120)')
             if 'shipping_country' not in order_cols:
@@ -55,7 +58,7 @@ class MerchService:
         if 'product_images' not in table_names:
             alter_statements.append(
                 'CREATE TABLE product_images ('
-                'id INTEGER PRIMARY KEY AUTOINCREMENT, '
+                f'id {id_column}, '
                 'product_id INTEGER NOT NULL, '
                 'image_filename VARCHAR(255) NOT NULL, '
                 'sort_order INTEGER DEFAULT 0, '
@@ -67,7 +70,7 @@ class MerchService:
         if 'product_ratings' not in table_names:
             alter_statements.append(
                 'CREATE TABLE product_ratings ('
-                'id INTEGER PRIMARY KEY AUTOINCREMENT, '
+                f'id {id_column}, '
                 'product_id INTEGER NOT NULL, '
                 'user_id INTEGER NOT NULL, '
                 'rating INTEGER NOT NULL, '
@@ -82,7 +85,7 @@ class MerchService:
         if 'product_reactions' not in table_names:
             alter_statements.append(
                 'CREATE TABLE product_reactions ('
-                'id INTEGER PRIMARY KEY AUTOINCREMENT, '
+                f'id {id_column}, '
                 'product_id INTEGER NOT NULL, '
                 'user_id INTEGER NOT NULL, '
                 'reaction_type VARCHAR(20) NOT NULL, '
@@ -97,7 +100,7 @@ class MerchService:
         if 'product_reviews' not in table_names:
             alter_statements.append(
                 'CREATE TABLE product_reviews ('
-                'id INTEGER PRIMARY KEY AUTOINCREMENT, '
+                f'id {id_column}, '
                 'product_id INTEGER NOT NULL, '
                 'user_id INTEGER NOT NULL, '
                 'title VARCHAR(140), '

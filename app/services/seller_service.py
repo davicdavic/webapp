@@ -40,7 +40,7 @@ class SellerService:
         if 'seller_sales_seen_at' not in user_cols:
             alter_statements.append('ALTER TABLE users ADD COLUMN seller_sales_seen_at TIMESTAMP')
         if 'seller_cover_photo' not in user_cols:
-            alter_statements.append('ALTER TABLE users ADD COLUMN seller_cover_photo VARCHAR(255) DEFAULT ""')
+            alter_statements.append("ALTER TABLE users ADD COLUMN seller_cover_photo VARCHAR(255) DEFAULT ''")
 
         id_column = 'SERIAL PRIMARY KEY' if is_postgres else 'INTEGER PRIMARY KEY AUTOINCREMENT'
 
@@ -69,7 +69,7 @@ class SellerService:
                 'reporter_id INTEGER NOT NULL, '
                 'message TEXT NOT NULL, '
                 'evidence_path VARCHAR(255), '
-                'status VARCHAR(20) DEFAULT "pending", '
+                "status VARCHAR(20) DEFAULT 'pending', "
                 'created_at TIMESTAMP, '
                 'reviewed_at TIMESTAMP, '
                 'reviewed_by INTEGER'

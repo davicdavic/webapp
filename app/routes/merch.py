@@ -86,44 +86,63 @@ def _seller_active(user):
 
 
 def _seller_rating_summary(seller_id):
-    avg_rating, rating_count = db.session.query(
-        func.coalesce(func.avg(SellerRating.rating), 0),
-        func.count(SellerRating.id)
-    ).filter(SellerRating.seller_id == seller_id).first()
-    return float(avg_rating or 0), int(rating_count or 0)
+    try:
+        avg_rating, rating_count = db.session.query(
+            func.coalesce(func.avg(SellerRating.rating), 0),
+            func.count(SellerRating.id)
+        ).filter(SellerRating.seller_id == seller_id).first()
+        return float(avg_rating or 0), int(rating_count or 0)
+    except Exception:
+        db.session.rollback()
+        return 0.0, 0
 
 
 def _product_feedback_summary(product_id):
-    avg_rating, rating_count = db.session.query(
-        func.coalesce(func.avg(ProductRating.rating), 0),
-        func.count(ProductRating.id)
-    ).filter(ProductRating.product_id == product_id).first()
+    try:
+        avg_rating, rating_count = db.session.query(
+            func.coalesce(func.avg(ProductRating.rating), 0),
+            func.count(ProductRating.id)
+        ).filter(ProductRating.product_id == product_id).first()
 
-    reaction_rows = db.session.query(
-        ProductReaction.reaction_type,
-        func.count(ProductReaction.id)
-    ).filter(ProductReaction.product_id == product_id)\
-     .group_by(ProductReaction.reaction_type)\
-     .all()
-    reaction_map = {row[0]: int(row[1]) for row in reaction_rows}
+        reaction_rows = db.session.query(
+            ProductReaction.reaction_type,
+            func.count(ProductReaction.id)
+        ).filter(ProductReaction.product_id == product_id)\
+         .group_by(ProductReaction.reaction_type)\
+         .all()
+        reaction_map = {row[0]: int(row[1]) for row in reaction_rows}
 
-    review_count = db.session.query(func.count(ProductReview.id))\
-        .filter(ProductReview.product_id == product_id)\
-        .scalar() or 0
+        review_count = db.session.query(func.count(ProductReview.id))\
+            .filter(ProductReview.product_id == product_id)\
+            .scalar() or 0
 
-    return {
-        'avg_rating': float(avg_rating or 0),
-        'rating_count': int(rating_count or 0),
-        'like_count': int(reaction_map.get('like', 0)),
-        'dislike_count': int(reaction_map.get('dislike', 0)),
-        'review_count': int(review_count or 0)
-    }
+        return {
+            'avg_rating': float(avg_rating or 0),
+            'rating_count': int(rating_count or 0),
+            'like_count': int(reaction_map.get('like', 0)),
+            'dislike_count': int(reaction_map.get('dislike', 0)),
+            'review_count': int(review_count or 0)
+        }
+    except Exception:
+        db.session.rollback()
+        return {
+            'avg_rating': 0.0,
+            'rating_count': 0,
+            'like_count': 0,
+            'dislike_count': 0,
+            'review_count': 0
+        }
 
 
 def _product_feedback_payload(product_id):
     summary = _product_feedback_summary(product_id)
-    user_rating = ProductRating.query.filter_by(product_id=product_id, user_id=current_user.id).first()
-    user_reaction = ProductReaction.query.filter_by(product_id=product_id, user_id=current_user.id).first()
+    try:
+        user_rating = ProductRating.query.filter_by(product_id=product_id, user_id=current_user.id).first()
+        user_reaction = ProductReaction.query.filter_by(product_id=product_id, user_id=current_user.id).first()
+    except Exception:
+        db.session.rollback()
+        user_rating = None
+        user_reaction = None
     summary['user_rating'] = int(user_rating.rating) if user_rating else 0
     summary['user_reaction'] = user_reaction.reaction_type if user_reaction else ''
     return summary
@@ -134,29 +153,6 @@ def _product_feedback_map(product_ids):
     product_ids = [pid for pid in set(product_ids or []) if pid]
     if not product_ids:
         return {}
-
-    ratings = db.session.query(
-        ProductRating.product_id,
-        func.coalesce(func.avg(ProductRating.rating), 0).label('avg_rating'),
-        func.count(ProductRating.id).label('rating_count')
-    ).filter(ProductRating.product_id.in_(product_ids))\
-     .group_by(ProductRating.product_id)\
-     .all()
-
-    reactions = db.session.query(
-        ProductReaction.product_id,
-        ProductReaction.reaction_type,
-        func.count(ProductReaction.id).label('reaction_count')
-    ).filter(ProductReaction.product_id.in_(product_ids))\
-     .group_by(ProductReaction.product_id, ProductReaction.reaction_type)\
-     .all()
-
-    reviews = db.session.query(
-        ProductReview.product_id,
-        func.count(ProductReview.id).label('review_count')
-    ).filter(ProductReview.product_id.in_(product_ids))\
-     .group_by(ProductReview.product_id)\
-     .all()
 
     feedback_map = {
         pid: {
@@ -169,16 +165,42 @@ def _product_feedback_map(product_ids):
         for pid in product_ids
     }
 
-    for row in ratings:
-        feedback_map[row.product_id]['avg_rating'] = float(row.avg_rating or 0)
-        feedback_map[row.product_id]['rating_count'] = int(row.rating_count or 0)
+    try:
+        ratings = db.session.query(
+            ProductRating.product_id,
+            func.coalesce(func.avg(ProductRating.rating), 0).label('avg_rating'),
+            func.count(ProductRating.id).label('rating_count')
+        ).filter(ProductRating.product_id.in_(product_ids))\
+         .group_by(ProductRating.product_id)\
+         .all()
 
-    for row in reactions:
-        key = 'like_count' if row.reaction_type == 'like' else 'dislike_count'
-        feedback_map[row.product_id][key] = int(row.reaction_count or 0)
+        reactions = db.session.query(
+            ProductReaction.product_id,
+            ProductReaction.reaction_type,
+            func.count(ProductReaction.id).label('reaction_count')
+        ).filter(ProductReaction.product_id.in_(product_ids))\
+         .group_by(ProductReaction.product_id, ProductReaction.reaction_type)\
+         .all()
 
-    for row in reviews:
-        feedback_map[row.product_id]['review_count'] = int(row.review_count or 0)
+        reviews = db.session.query(
+            ProductReview.product_id,
+            func.count(ProductReview.id).label('review_count')
+        ).filter(ProductReview.product_id.in_(product_ids))\
+         .group_by(ProductReview.product_id)\
+         .all()
+
+        for row in ratings:
+            feedback_map[row.product_id]['avg_rating'] = float(row.avg_rating or 0)
+            feedback_map[row.product_id]['rating_count'] = int(row.rating_count or 0)
+
+        for row in reactions:
+            key = 'like_count' if row.reaction_type == 'like' else 'dislike_count'
+            feedback_map[row.product_id][key] = int(row.reaction_count or 0)
+
+        for row in reviews:
+            feedback_map[row.product_id]['review_count'] = int(row.review_count or 0)
+    except Exception:
+        db.session.rollback()
 
     return feedback_map
 
@@ -495,31 +517,46 @@ def seller_profile(seller_id):
         return redirect(url_for('merch.index'))
 
     avg_rating, rating_count = _seller_rating_summary(seller_id)
-    total_sales = db.session.query(
-        func.coalesce(func.sum(MerchOrder.total_price), 0)
-    ).join(Product, Product.id == MerchOrder.product_id)\
-     .filter(
-         Product.seller_id == seller_id,
-         MerchOrder.status.in_(['completed', 'delivered'])
-     )\
-     .scalar() or 0
-    total_items_sold = db.session.query(
-        func.coalesce(func.sum(MerchOrder.quantity), 0)
-    ).join(Product, Product.id == MerchOrder.product_id)\
-     .filter(
-         Product.seller_id == seller_id,
-         MerchOrder.status.in_(['completed', 'delivered'])
-     )\
-     .scalar() or 0
 
-    user_rating = SellerRating.query.filter_by(
-        seller_id=seller_id,
-        rater_id=current_user.id
-    ).first()
+    try:
+        total_sales = db.session.query(
+            func.coalesce(func.sum(MerchOrder.total_price), 0)
+        ).join(Product, Product.id == MerchOrder.product_id)\
+         .filter(
+             Product.seller_id == seller_id,
+             MerchOrder.status.in_(['completed', 'delivered'])
+         )\
+         .scalar() or 0
+        total_items_sold = db.session.query(
+            func.coalesce(func.sum(MerchOrder.quantity), 0)
+        ).join(Product, Product.id == MerchOrder.product_id)\
+         .filter(
+             Product.seller_id == seller_id,
+             MerchOrder.status.in_(['completed', 'delivered'])
+         )\
+         .scalar() or 0
+    except Exception:
+        db.session.rollback()
+        total_sales = 0
+        total_items_sold = 0
 
-    products = Product.query.filter_by(seller_id=seller_id, is_active=True)\
-        .order_by(Product.created_at.desc())\
-        .all()
+    try:
+        user_rating = SellerRating.query.filter_by(
+            seller_id=seller_id,
+            rater_id=current_user.id
+        ).first()
+    except Exception:
+        db.session.rollback()
+        user_rating = None
+
+    try:
+        products = Product.query.filter_by(seller_id=seller_id, is_active=True)\
+            .order_by(Product.created_at.desc())\
+            .all()
+    except Exception:
+        db.session.rollback()
+        products = []
+
     product_feedbacks = _product_feedback_map([p.id for p in products])
 
     return render_template(
