@@ -73,7 +73,14 @@
                 {% endif %}
             </div>
 
-            <form method="POST" enctype="multipart/form-data" id="chatForm" class="chat-composer">
+            <form
+                method="POST"
+                action="{{ url_for('merch.send_message', conversation_id=conversation.id) }}"
+                enctype="multipart/form-data"
+                id="chatForm"
+                class="chat-composer"
+                data-turbo="false"
+            >
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="chat-preview hidden" id="imagePreview"></div>
                 <div class="chat-composer-row">

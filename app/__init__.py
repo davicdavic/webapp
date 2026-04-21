@@ -15,7 +15,11 @@ def create_app(config_name=None):
 
     # Determine config to use
     if config_name is None:
-        config_name = os.environ.get('FLASK_ENV', 'development')
+        config_name = (
+            os.environ.get('FLASK_ENV')
+            or os.environ.get('APP_ENV')
+            or ('production' if os.environ.get('RENDER') or os.environ.get('RENDER_EXTERNAL_URL') else 'development')
+        )
 
     # Create Flask app
     app = Flask(__name__,
@@ -43,6 +47,20 @@ def create_app(config_name=None):
     # Initialize extensions
     init_extensions(app)
     init_game_state(app)
+
+    if config_name == 'production':
+        optional_missing = [
+            name for name in (
+                'NOWPAYMENTS_API_KEY',
+                'NOWPAYMENTS_IPN_SECRET',
+            )
+            if not os.environ.get(name)
+        ]
+        if optional_missing:
+            app.logger.warning(
+                'Optional production env vars missing; deposit creation/webhook features may be limited: %s',
+                ', '.join(optional_missing)
+            )
 
     # Rate limiting (per-IP + per-user)
     from app.security import enforce_rate_limit

@@ -1395,6 +1395,10 @@ def admin_sales():
 @login_required
 def seller_chat(seller_id):
     """Open or continue chat with a seller"""
+    if seller_id == current_user.id:
+        flash('You cannot chat with yourself.', 'error')
+        return redirect(url_for('merch.index'))
+
     seller = User.query.get_or_404(seller_id)
     if not seller.is_seller and not seller.is_admin():
         flash('Seller not found', 'error')
@@ -1426,6 +1430,10 @@ def chat_conversation(conversation_id):
     if current_user.id not in {conversation.buyer_id, conversation.seller_id}:
         flash('Access denied', 'error')
         return redirect(url_for('merch.index'))
+
+    if conversation.buyer_id == conversation.seller_id:
+        flash('You cannot chat with yourself.', 'error')
+        return redirect(url_for('merch.my_chats'))
 
     requested_mode = (request.args.get('mode') or '').strip().lower()
     default_mode = 'buyer' if current_user.id == conversation.buyer_id else 'seller'
@@ -1474,13 +1482,17 @@ def send_message(conversation_id):
     if current_user.id != conversation.buyer_id and current_user.id != conversation.seller_id:
         flash('Access denied', 'error')
         return redirect(url_for('merch.index'))
+
+    if conversation.buyer_id == conversation.seller_id:
+        flash('You cannot chat with yourself.', 'error')
+        return redirect(url_for('merch.my_chats'))
     
     message_text = request.form.get('message', '').strip()
     image = request.files.get('image')
     
     if not message_text and not (image and image.filename):
         flash('Message or image is required', 'error')
-        return redirect(url_for('merch.seller_chat', seller_id=conversation.seller_id))
+        return redirect(url_for('merch.chat_conversation', conversation_id=conversation.id))
     
     image_path = None
     message_type = 'text'
@@ -1491,7 +1503,7 @@ def send_message(conversation_id):
             message_type = 'image'
         except ValueError as exc:
             flash(str(exc), 'error')
-            return redirect(url_for('merch.seller_chat', seller_id=conversation.seller_id))
+            return redirect(url_for('merch.chat_conversation', conversation_id=conversation.id))
     
     message = SellerChatMessage(
         conversation_id=conversation_id,
@@ -1507,6 +1519,9 @@ def send_message(conversation_id):
     
     # Create notification for the other party
     recipient_id = conversation.seller_id if current_user.id == conversation.buyer_id else conversation.buyer_id
+    if recipient_id == current_user.id:
+        flash('You cannot chat with yourself.', 'error')
+        return redirect(url_for('merch.my_chats'))
     recipient = User.query.get(recipient_id)
     
     if recipient:

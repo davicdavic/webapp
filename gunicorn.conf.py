@@ -1,28 +1,19 @@
-"""
-Gunicorn Configuration
-Production WSGI server configuration - Optimized for 100K+ users
-"""
+"""Gunicorn configuration tuned for small-to-medium Render instances."""
 import os
-import multiprocessing
 
 # Server socket
 bind = f"0.0.0.0:{os.environ.get('PORT', '5000')}"
 backlog = 2048
 
-# Worker processes - Use multiple workers for concurrency
-# Rule of thumb: 2-4 workers per CPU core
-# For 100K users, use more workers with gevent
-workers = int(os.environ.get('WEB_CONCURRENCY', multiprocessing.cpu_count() * 2 + 1))
+# Render containers can report misleading CPU counts, so keep the default modest.
+workers = int(os.environ.get('WEB_CONCURRENCY', '2'))
 
-# Worker class - Use sync for compatibility (no extra dependencies needed)
+# Worker class - use sync for compatibility
 worker_class = 'sync'
 
-# Worker connections - Number of simultaneous clients per worker
-worker_connections = int(os.environ.get('WORKER_CONNECTIONS', '1000'))
-
 # Timeouts
-timeout = int(os.environ.get('GUNICORN_TIMEOUT', '30'))
-graceful_timeout = 30
+timeout = int(os.environ.get('GUNICORN_TIMEOUT', '60'))
+graceful_timeout = int(os.environ.get('GUNICORN_GRACEFUL_TIMEOUT', '30'))
 keepalive = 5
 
 # Logging
@@ -42,8 +33,8 @@ user = None
 group = None
 tmp_upload_dir = None
 
-# Preload app for memory efficiency (shared memory between workers)
-preload_app = True
+# Keep startup isolated per worker to avoid surprises from import-time side effects.
+preload_app = False
 
 # Max requests per worker before recycling (prevents memory leaks)
 max_requests = int(os.environ.get('MAX_REQUESTS', '1000'))
@@ -56,6 +47,3 @@ max_requests_jitter = 100
 # Development reloader
 reload = os.environ.get('FLASK_ENV') == 'development'
 reload_engine = 'auto'
-
-# For testing high concurrency locally:
-# To test with 1000 concurrent users: ab -n 1000 -c 100 http://localhost:5000/
