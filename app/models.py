@@ -21,6 +21,7 @@ class User(db.Model, UserMixin):
     user_6digit = db.Column(db.String(6), unique=True, nullable=True, index=True)
     bio = db.Column(db.Text, default='')
     profile_pic = db.Column(db.String(255), default='')
+    seller_cover_photo = db.Column(db.String(255), default='')
     role = db.Column(db.String(20), default='user')  # user, admin
     is_seller = db.Column(db.Boolean, default=False)  # flag set by admin to allow selling
     seller_commission_rate = db.Column(db.Numeric(5, 4), default=0.03)  # platform fee rate (e.g., 0.03 for 3%)
@@ -79,6 +80,7 @@ class User(db.Model, UserMixin):
             'user_6digit': self.user_6digit,
             'bio': self.bio,
             'profile_pic': self.profile_pic,
+            'seller_cover_photo': self.seller_cover_photo,
             'role': self.role,
             'seller_expires_at': self.seller_expires_at.isoformat() if self.seller_expires_at else None,
             'created_at': self.created_at.isoformat() if self.created_at else None

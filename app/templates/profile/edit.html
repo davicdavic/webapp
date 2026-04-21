@@ -48,6 +48,29 @@
                 <small class="px-text-muted">Supported: PNG, JPG, GIF, WEBP (Max 16MB)</small>
             </div>
 
+            {% if current_user.is_seller %}
+            <div class="px-form-group">
+                <label for="seller_cover_photo" class="px-form-label">Seller Store Cover</label>
+                <div class="seller-cover-preview-wrap">
+                    {% if current_user.seller_cover_photo %}
+                    <img src="{{ url_for('static', filename=current_user.seller_cover_photo|static_path) }}" alt="Store cover" class="seller-cover-preview">
+                    {% else %}
+                    <div class="seller-cover-preview seller-cover-preview-placeholder">
+                        <span>Store Cover Banner</span>
+                    </div>
+                    {% endif %}
+                </div>
+                <input
+                    type="file"
+                    id="seller_cover_photo"
+                    name="seller_cover_photo"
+                    class="px-input"
+                    accept="image/*"
+                />
+                <small class="px-text-muted">This shows on your public seller store like a cover photo.</small>
+            </div>
+            {% endif %}
+
             <div class="px-form-group">
                 <label for="bio" class="px-form-label">Bio</label>
                 <textarea 
@@ -215,6 +238,28 @@
     border-radius: 8px;
     border: 2px solid #ddd;
     object-fit: cover;
+}
+
+.seller-cover-preview-wrap {
+    margin-bottom: 10px;
+}
+
+.seller-cover-preview {
+    width: 100%;
+    max-width: 100%;
+    aspect-ratio: 16 / 6;
+    border: 3px solid var(--px-border);
+    object-fit: cover;
+    display: block;
+    background: linear-gradient(135deg, #eef4ff 0%, #dce7fb 100%);
+}
+
+.seller-cover-preview-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--px-blue);
+    font-weight: 700;
 }
 
 @media (max-width: 768px) {

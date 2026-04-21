@@ -39,6 +39,8 @@ class SellerService:
             alter_statements.append('ALTER TABLE users ADD COLUMN seller_reminder_sent_at TIMESTAMP')
         if 'seller_sales_seen_at' not in user_cols:
             alter_statements.append('ALTER TABLE users ADD COLUMN seller_sales_seen_at TIMESTAMP')
+        if 'seller_cover_photo' not in user_cols:
+            alter_statements.append('ALTER TABLE users ADD COLUMN seller_cover_photo VARCHAR(255) DEFAULT ""')
 
         id_column = 'SERIAL PRIMARY KEY' if is_postgres else 'INTEGER PRIMARY KEY AUTOINCREMENT'
 

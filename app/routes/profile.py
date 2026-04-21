@@ -10,7 +10,7 @@ from app.extensions import db, cache
 from app.models import User, SellerRequest, SellerRating, Product, MerchOrder, UserNotification, SellerNotification, SellerChatConversation, SellerChatMessage
 from app.services import UserService
 from app.services.seller_service import SellerService, SELLER_PLANS
-from app.utils import save_uploaded_file
+from app.utils import save_uploaded_file, save_uploaded_image_optimized
 
 profile_bp = Blueprint('profile', __name__)
 
@@ -127,15 +127,21 @@ def edit():
         # Handle profile picture upload
         profile_pic = request.files.get('profile_pic')
         profile_pic_path = current_user.profile_pic
+        seller_cover = request.files.get('seller_cover_photo')
+        seller_cover_path = current_user.seller_cover_photo
 
         if profile_pic and profile_pic.filename:
-            from app.utils import save_uploaded_file
             profile_pic_path = save_uploaded_file(profile_pic, 'profiles')
+
+        if current_user.is_seller and seller_cover and seller_cover.filename:
+            seller_cover_path = save_uploaded_image_optimized(seller_cover, 'profiles')
 
         # Update user
         current_user.bio = bio
         if profile_pic_path:
             current_user.profile_pic = profile_pic_path
+        if current_user.is_seller:
+            current_user.seller_cover_photo = seller_cover_path or ''
 
         db.session.commit()
 

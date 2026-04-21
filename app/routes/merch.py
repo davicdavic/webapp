@@ -503,6 +503,14 @@ def seller_profile(seller_id):
          MerchOrder.status.in_(['completed', 'delivered'])
      )\
      .scalar() or 0
+    total_items_sold = db.session.query(
+        func.coalesce(func.sum(MerchOrder.quantity), 0)
+    ).join(Product, Product.id == MerchOrder.product_id)\
+     .filter(
+         Product.seller_id == seller_id,
+         MerchOrder.status.in_(['completed', 'delivered'])
+     )\
+     .scalar() or 0
 
     user_rating = SellerRating.query.filter_by(
         seller_id=seller_id,
@@ -512,6 +520,7 @@ def seller_profile(seller_id):
     products = Product.query.filter_by(seller_id=seller_id, is_active=True)\
         .order_by(Product.created_at.desc())\
         .all()
+    product_feedbacks = _product_feedback_map([p.id for p in products])
 
     return render_template(
         'merch/seller_profile.html',
@@ -519,8 +528,10 @@ def seller_profile(seller_id):
         avg_rating=avg_rating,
         rating_count=rating_count,
         total_sales=int(total_sales),
+        total_items_sold=int(total_items_sold),
         user_rating=user_rating.rating if user_rating else None,
-        products=products
+        products=products,
+        product_feedbacks=product_feedbacks
     )
 
 
