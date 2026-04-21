@@ -9,7 +9,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
 from app.extensions import db, cache
-from app.models import Product, ProductFile, ProductImage, MerchOrder, User, SellerRating, SellerReport
+from app.models import Product, ProductFile, ProductImage, ProductRating, ProductReaction, ProductReview, MerchOrder, User, SellerRating, SellerReport
 from app.models import SellerChatConversation, SellerChatMessage, SellerNotification
 from app.services.seller_service import SELLER_PLANS
 from app.services.history_service import HistoryService
@@ -91,6 +91,42 @@ def _seller_rating_summary(seller_id):
         func.count(SellerRating.id)
     ).filter(SellerRating.seller_id == seller_id).first()
     return float(avg_rating or 0), int(rating_count or 0)
+
+
+def _product_feedback_summary(product_id):
+    avg_rating, rating_count = db.session.query(
+        func.coalesce(func.avg(ProductRating.rating), 0),
+        func.count(ProductRating.id)
+    ).filter(ProductRating.product_id == product_id).first()
+
+    reaction_rows = db.session.query(
+        ProductReaction.reaction_type,
+        func.count(ProductReaction.id)
+    ).filter(ProductReaction.product_id == product_id)\
+     .group_by(ProductReaction.reaction_type)\
+     .all()
+    reaction_map = {row[0]: int(row[1]) for row in reaction_rows}
+
+    review_count = db.session.query(func.count(ProductReview.id))\
+        .filter(ProductReview.product_id == product_id)\
+        .scalar() or 0
+
+    return {
+        'avg_rating': float(avg_rating or 0),
+        'rating_count': int(rating_count or 0),
+        'like_count': int(reaction_map.get('like', 0)),
+        'dislike_count': int(reaction_map.get('dislike', 0)),
+        'review_count': int(review_count or 0)
+    }
+
+
+def _product_feedback_payload(product_id):
+    summary = _product_feedback_summary(product_id)
+    user_rating = ProductRating.query.filter_by(product_id=product_id, user_id=current_user.id).first()
+    user_reaction = ProductReaction.query.filter_by(product_id=product_id, user_id=current_user.id).first()
+    summary['user_rating'] = int(user_rating.rating) if user_rating else 0
+    summary['user_reaction'] = user_reaction.reaction_type if user_reaction else ''
+    return summary
 
 
 def _apply_store_filters(query, search='', seller_search='', product_type=''):
@@ -267,7 +303,121 @@ def product_detail(product_id):
              MerchOrder.status.in_(['completed', 'delivered'])
          )\
          .scalar() or 0
-    return render_template('merch/product.html', product=product, seller_rating=seller_rating, seller_sales=int(seller_sales or 0))
+    product_feedback = _product_feedback_payload(product.id)
+    recent_reviews = ProductReview.query.filter_by(product_id=product.id)\
+        .order_by(ProductReview.updated_at.desc())\
+        .limit(2)\
+        .all()
+    return render_template(
+        'merch/product.html',
+        product=product,
+        seller_rating=seller_rating,
+        seller_sales=int(seller_sales or 0),
+        product_feedback=product_feedback,
+        recent_reviews=recent_reviews
+    )
+
+
+@merch_bp.route('/product/<int:product_id>/rate', methods=['POST'])
+@login_required
+def rate_product(product_id):
+    """Rate a product with 1-5 stars."""
+    product = Product.query.get_or_404(product_id)
+    if product.seller_id == current_user.id:
+        return jsonify({'ok': False, 'error': 'You cannot rate your own product.'}), 400
+
+    rating = request.form.get('rating', type=int)
+    if rating not in {1, 2, 3, 4, 5}:
+        return jsonify({'ok': False, 'error': 'Rating must be between 1 and 5.'}), 400
+
+    existing = ProductRating.query.filter_by(product_id=product.id, user_id=current_user.id).first()
+    if existing:
+        existing.rating = rating
+    else:
+        db.session.add(ProductRating(product_id=product.id, user_id=current_user.id, rating=rating))
+    db.session.commit()
+
+    return jsonify({'ok': True, 'feedback': _product_feedback_payload(product.id)})
+
+
+@merch_bp.route('/product/<int:product_id>/react', methods=['POST'])
+@login_required
+def react_product(product_id):
+    """Like or dislike a product without reloading the page."""
+    product = Product.query.get_or_404(product_id)
+    if product.seller_id == current_user.id:
+        return jsonify({'ok': False, 'error': 'You cannot react to your own product.'}), 400
+
+    reaction_type = (request.form.get('reaction_type') or '').strip().lower()
+    if reaction_type not in {'like', 'dislike'}:
+        return jsonify({'ok': False, 'error': 'Invalid reaction type.'}), 400
+
+    existing = ProductReaction.query.filter_by(product_id=product.id, user_id=current_user.id).first()
+    if existing and existing.reaction_type == reaction_type:
+        db.session.delete(existing)
+    elif existing:
+        existing.reaction_type = reaction_type
+    else:
+        db.session.add(ProductReaction(product_id=product.id, user_id=current_user.id, reaction_type=reaction_type))
+    db.session.commit()
+
+    return jsonify({'ok': True, 'feedback': _product_feedback_payload(product.id)})
+
+
+@merch_bp.route('/product/<int:product_id>/reviews')
+@login_required
+def product_reviews(product_id):
+    """View and write product reviews."""
+    product = Product.query.get_or_404(product_id)
+    if product.seller_id is not None and not _seller_active(product.seller) and not current_user.is_admin():
+        flash('This seller is inactive. Product is hidden.', 'error')
+        return redirect(url_for('merch.index'))
+
+    reviews = ProductReview.query.filter_by(product_id=product.id)\
+        .order_by(ProductReview.updated_at.desc())\
+        .all()
+    user_review = ProductReview.query.filter_by(product_id=product.id, user_id=current_user.id).first()
+    product_feedback = _product_feedback_payload(product.id)
+
+    return render_template(
+        'merch/product_reviews.html',
+        product=product,
+        reviews=reviews,
+        user_review=user_review,
+        product_feedback=product_feedback
+    )
+
+
+@merch_bp.route('/product/<int:product_id>/reviews', methods=['POST'])
+@login_required
+def save_product_review(product_id):
+    """Create or update a product review."""
+    product = Product.query.get_or_404(product_id)
+    if product.seller_id == current_user.id:
+        flash('You cannot review your own product.', 'error')
+        return redirect(url_for('merch.product_reviews', product_id=product.id))
+
+    title = (request.form.get('title') or '').strip()
+    content = (request.form.get('content') or '').strip()
+    if not content:
+        flash('Review text is required.', 'error')
+        return redirect(url_for('merch.product_reviews', product_id=product.id))
+
+    existing = ProductReview.query.filter_by(product_id=product.id, user_id=current_user.id).first()
+    if existing:
+        existing.title = title or None
+        existing.content = content
+    else:
+        db.session.add(ProductReview(
+            product_id=product.id,
+            user_id=current_user.id,
+            title=title or None,
+            content=content
+        ))
+    db.session.commit()
+
+    flash('Review saved.', 'success')
+    return redirect(url_for('merch.product_reviews', product_id=product.id))
 
 
 @merch_bp.route('/seller/<int:seller_id>')
@@ -1199,7 +1349,7 @@ def seller_chat(seller_id):
         db.session.add(conversation)
         db.session.commit()
     
-    return redirect(url_for('merch.chat_conversation', conversation_id=conversation.id))
+    return redirect(url_for('merch.chat_conversation', conversation_id=conversation.id, mode='buyer'))
 
 
 @merch_bp.route('/chat/<int:conversation_id>')
@@ -1211,6 +1361,16 @@ def chat_conversation(conversation_id):
     if current_user.id not in {conversation.buyer_id, conversation.seller_id}:
         flash('Access denied', 'error')
         return redirect(url_for('merch.index'))
+
+    requested_mode = (request.args.get('mode') or '').strip().lower()
+    default_mode = 'buyer' if current_user.id == conversation.buyer_id else 'seller'
+    if requested_mode not in {'buyer', 'seller'}:
+        requested_mode = default_mode
+
+    if requested_mode == 'buyer' and current_user.id != conversation.buyer_id:
+        requested_mode = default_mode
+    if requested_mode == 'seller' and current_user.id != conversation.seller_id:
+        requested_mode = default_mode
 
     other_user = conversation.seller if current_user.id == conversation.buyer_id else conversation.buyer
     messages = SellerChatMessage.query.filter_by(conversation_id=conversation.id)\
@@ -1234,7 +1394,8 @@ def chat_conversation(conversation_id):
         'merch/chat.html',
         conversation=conversation,
         other_user=other_user,
-        messages=messages
+        messages=messages,
+        chat_mode=requested_mode
     )
 
 
@@ -1350,6 +1511,10 @@ def get_messages(conversation_id):
 @login_required
 def my_chats():
     """List all conversations for current user"""
+    active_mode = (request.args.get('mode') or '').strip().lower()
+    if active_mode not in {'buyer', 'seller'}:
+        active_mode = 'seller' if (current_user.is_seller or current_user.is_admin()) else 'buyer'
+
     # Get buyer conversations
     buyer_convs = SellerChatConversation.query.filter_by(buyer_id=current_user.id)\
         .order_by(SellerChatConversation.updated_at.desc()).all()
@@ -1363,7 +1528,8 @@ def my_chats():
     return render_template(
         'merch/my_chats.html',
         buyer_conversations=buyer_convs,
-        seller_conversations=seller_convs
+        seller_conversations=seller_convs,
+        active_mode=active_mode
     )
 
 

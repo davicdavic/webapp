@@ -64,6 +64,52 @@ class MerchService:
                 ')'
             )
 
+        if 'product_ratings' not in table_names:
+            alter_statements.append(
+                'CREATE TABLE product_ratings ('
+                'id INTEGER PRIMARY KEY AUTOINCREMENT, '
+                'product_id INTEGER NOT NULL, '
+                'user_id INTEGER NOT NULL, '
+                'rating INTEGER NOT NULL, '
+                'created_at TIMESTAMP, '
+                'updated_at TIMESTAMP, '
+                'FOREIGN KEY(product_id) REFERENCES products (id), '
+                'FOREIGN KEY(user_id) REFERENCES users (id), '
+                'CONSTRAINT ux_product_ratings_product_user UNIQUE (product_id, user_id)'
+                ')'
+            )
+
+        if 'product_reactions' not in table_names:
+            alter_statements.append(
+                'CREATE TABLE product_reactions ('
+                'id INTEGER PRIMARY KEY AUTOINCREMENT, '
+                'product_id INTEGER NOT NULL, '
+                'user_id INTEGER NOT NULL, '
+                'reaction_type VARCHAR(20) NOT NULL, '
+                'created_at TIMESTAMP, '
+                'updated_at TIMESTAMP, '
+                'FOREIGN KEY(product_id) REFERENCES products (id), '
+                'FOREIGN KEY(user_id) REFERENCES users (id), '
+                'CONSTRAINT ux_product_reactions_product_user UNIQUE (product_id, user_id)'
+                ')'
+            )
+
+        if 'product_reviews' not in table_names:
+            alter_statements.append(
+                'CREATE TABLE product_reviews ('
+                'id INTEGER PRIMARY KEY AUTOINCREMENT, '
+                'product_id INTEGER NOT NULL, '
+                'user_id INTEGER NOT NULL, '
+                'title VARCHAR(140), '
+                'content TEXT NOT NULL, '
+                'created_at TIMESTAMP, '
+                'updated_at TIMESTAMP, '
+                'FOREIGN KEY(product_id) REFERENCES products (id), '
+                'FOREIGN KEY(user_id) REFERENCES users (id), '
+                'CONSTRAINT ux_product_reviews_product_user UNIQUE (product_id, user_id)'
+                ')'
+            )
+
         for statement in alter_statements:
             db.session.execute(text(statement))
 

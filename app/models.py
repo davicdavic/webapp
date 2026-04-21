@@ -621,6 +621,15 @@ class Product(db.Model):
         order_by='ProductImage.sort_order.asc()'
     )
     orders = db.relationship('MerchOrder', backref='product', lazy='dynamic')
+    ratings = db.relationship('ProductRating', backref='product', lazy='dynamic', cascade='all, delete-orphan')
+    reactions = db.relationship('ProductReaction', backref='product', lazy='dynamic', cascade='all, delete-orphan')
+    reviews = db.relationship(
+        'ProductReview',
+        backref='product',
+        lazy='dynamic',
+        cascade='all, delete-orphan',
+        order_by='ProductReview.updated_at.desc()'
+    )
     
     @property
     def quantity(self):
@@ -663,6 +672,70 @@ class ProductImage(db.Model):
 
     def __repr__(self):
         return f'<ProductImage product={self.product_id} order={self.sort_order}>'
+
+
+class ProductRating(db.Model):
+    """Per-user product star rating."""
+    __tablename__ = 'product_ratings'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    rating = db.Column(db.Integer, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = db.relationship('User', backref=db.backref('product_ratings', lazy='dynamic'))
+
+    __table_args__ = (
+        db.UniqueConstraint('product_id', 'user_id', name='ux_product_ratings_product_user'),
+    )
+
+    def __repr__(self):
+        return f'<ProductRating product={self.product_id} user={self.user_id} rating={self.rating}>'
+
+
+class ProductReaction(db.Model):
+    """Simple per-user like or dislike on a product."""
+    __tablename__ = 'product_reactions'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    reaction_type = db.Column(db.String(20), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = db.relationship('User', backref=db.backref('product_reactions', lazy='dynamic'))
+
+    __table_args__ = (
+        db.UniqueConstraint('product_id', 'user_id', name='ux_product_reactions_product_user'),
+    )
+
+    def __repr__(self):
+        return f'<ProductReaction product={self.product_id} user={self.user_id} type={self.reaction_type}>'
+
+
+class ProductReview(db.Model):
+    """Per-user written review for a product."""
+    __tablename__ = 'product_reviews'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    title = db.Column(db.String(140), nullable=True)
+    content = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = db.relationship('User', backref=db.backref('product_reviews', lazy='dynamic'))
+
+    __table_args__ = (
+        db.UniqueConstraint('product_id', 'user_id', name='ux_product_reviews_product_user'),
+    )
+
+    def __repr__(self):
+        return f'<ProductReview product={self.product_id} user={self.user_id}>'
 
 
 class ProductFile(db.Model):
