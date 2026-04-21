@@ -51,7 +51,7 @@
                         <div class="chat-bubble-inner">
                             {% if message.message_type == 'image' and message.image_path %}
                             <img
-                                src="{{ url_for('static', filename='uploads/chat/' + message.image_path) }}"
+                                src="{{ url_for('static', filename=message.image_path|static_path) }}"
                                 alt="Chat image"
                                 class="chat-image"
                             >

@@ -51,9 +51,17 @@ def init_extensions(app):
     else:
         compress.init_app(app)
 
-    # Shared Redis client (cache/session/game-state helpers can reuse this).
+    # Shared Redis client (cache/session/game-state helpers can reuse this) only when needed.
+    uses_redis = (
+        app.config.get('CACHE_TYPE') == 'redis'
+        or app.config.get('GAME_STATE_BACKEND') == 'redis'
+        or (
+            app.config.get('ENABLE_SERVER_SIDE_SESSIONS')
+            and app.config.get('SESSION_TYPE') == 'redis'
+        )
+    )
     redis_url = app.config.get('REDIS_URL') or app.config.get('CACHE_REDIS_URL')
-    if redis_url and redis is not None:
+    if uses_redis and redis_url and redis is not None:
         try:
             client = redis.Redis.from_url(redis_url, decode_responses=True)
             client.ping()

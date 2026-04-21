@@ -205,6 +205,7 @@ class ProductionConfig(Config):
     DEBUG = False
     TESTING = False
     AUTO_CREATE_SCHEMA_ON_START = _bool_env('AUTO_CREATE_SCHEMA_ON_START', True)
+    _HAS_REDIS_URL = bool(_env('REDIS_URL') or _env('CACHE_REDIS_URL') or _env('SESSION_REDIS_URL'))
 
     # In production, use DATABASE_URL from the environment. Do not silently fall back to SQLite.
     SQLALCHEMY_DATABASE_URI = _env('DATABASE_URL') or ''
@@ -212,10 +213,10 @@ class ProductionConfig(Config):
     SESSION_COOKIE_SECURE = True
     REMEMBER_COOKIE_SECURE = True
 
-    # Use Redis for caching/session/game-state in production
-    CACHE_TYPE = _env('CACHE_TYPE') or 'redis'
-    ENABLE_SERVER_SIDE_SESSIONS = _bool_env('ENABLE_SERVER_SIDE_SESSIONS', True)
-    GAME_STATE_BACKEND = _env('GAME_STATE_BACKEND') or 'redis'
+    # Use Redis only when a Redis service is actually configured.
+    CACHE_TYPE = _env('CACHE_TYPE') or ('redis' if _HAS_REDIS_URL else 'simple')
+    ENABLE_SERVER_SIDE_SESSIONS = _bool_env('ENABLE_SERVER_SIDE_SESSIONS', _HAS_REDIS_URL)
+    GAME_STATE_BACKEND = _env('GAME_STATE_BACKEND') or ('redis' if _HAS_REDIS_URL else 'memory')
 
     NOWPAYMENTS_API_KEY = _env('NOWPAYMENTS_API_KEY')
     NOWPAYMENTS_IPN_SECRET = _env('NOWPAYMENTS_IPN_SECRET')
