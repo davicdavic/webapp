@@ -21,6 +21,15 @@ def _env(name: str, default=None):
     return value
 
 
+def _normalize_database_url(value):
+    """Normalize provider DB URLs for SQLAlchemy compatibility."""
+    if not value:
+        return value
+    if value.startswith('postgres://'):
+        return 'postgresql://' + value[len('postgres://'):]
+    return value
+
+
 class Config:
     """Base configuration class"""
 
@@ -31,7 +40,7 @@ class Config:
     # Database Configuration
     BASE_DIR = os.path.abspath(os.path.dirname(__file__))
     PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, '..'))
-    SQLALCHEMY_DATABASE_URI = _env('DATABASE_URL') or \
+    SQLALCHEMY_DATABASE_URI = _normalize_database_url(_env('DATABASE_URL')) or \
         f'sqlite:///{os.path.join(BASE_DIR, "..", "instance", "database.db")}'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
@@ -208,7 +217,7 @@ class ProductionConfig(Config):
     _HAS_REDIS_URL = bool(_env('REDIS_URL') or _env('CACHE_REDIS_URL') or _env('SESSION_REDIS_URL'))
 
     # In production, use DATABASE_URL from the environment. Do not silently fall back to SQLite.
-    SQLALCHEMY_DATABASE_URI = _env('DATABASE_URL') or ''
+    SQLALCHEMY_DATABASE_URI = _normalize_database_url(_env('DATABASE_URL')) or ''
 
     SESSION_COOKIE_SECURE = True
     REMEMBER_COOKIE_SECURE = True
@@ -225,7 +234,8 @@ class ProductionConfig(Config):
     NOWPAYMENTS_CANCEL_URL = _env('NOWPAYMENTS_CANCEL_URL')
 
     # Database connection pool for production
-    if 'sqlite' in _env('DATABASE_URL', '') or not _env('DATABASE_URL'):
+    _PROD_DB_URL = _normalize_database_url(_env('DATABASE_URL', ''))
+    if 'sqlite' in _PROD_DB_URL or not _PROD_DB_URL:
         SQLALCHEMY_ENGINE_OPTIONS = {
             'pool_pre_ping': True,
         }

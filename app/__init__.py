@@ -102,7 +102,11 @@ def create_app(config_name=None):
     @login_manager.user_loader
     def load_user(user_id):
         from app.models import User
-        return User.query.get(int(user_id))
+        try:
+            return User.query.get(int(user_id))
+        except Exception as exc:
+            app.logger.warning(f'User loader failed for id={user_id}: {exc}')
+            return None
 
     # Register blueprints
     register_blueprints(app)
@@ -204,6 +208,7 @@ def register_error_handlers(app):
 
     @app.errorhandler(500)
     def internal_error(error):
+        app.logger.exception('Unhandled internal server error: %s', error)
         db.session.rollback()
         return render_template('errors/500.html'), 500
 
@@ -240,43 +245,47 @@ def register_context_processors(app):
     @app.before_request
     def seller_expiry_reminder():
         """Auto-remind sellers before plan expiry (once per day)."""
-        if not current_user.is_authenticated:
-            return
-        if current_user.is_admin():
-            return
-        if not current_user.is_seller:
-            return
-        expires_at = current_user.seller_expires_at
-        if not expires_at:
-            return
-        if request.method != 'GET':
-            return
-        if request.blueprint in {'api'}:
-            return
-        if request.endpoint in {'static', 'healthz'}:
-            return
+        try:
+            if not current_user.is_authenticated:
+                return
+            if current_user.is_admin():
+                return
+            if not current_user.is_seller:
+                return
+            expires_at = current_user.seller_expires_at
+            if not expires_at:
+                return
+            if request.method != 'GET':
+                return
+            if request.blueprint in {'api'}:
+                return
+            if request.endpoint in {'static', 'healthz'}:
+                return
 
-        now = datetime.utcnow()
-        if expires_at <= now:
-            return
+            now = datetime.utcnow()
+            if expires_at <= now:
+                return
 
-        seconds_left = (expires_at - now).total_seconds()
-        days_left = int(math.ceil(seconds_left / 86400))
-        if days_left > 7:
-            return
+            seconds_left = (expires_at - now).total_seconds()
+            days_left = int(math.ceil(seconds_left / 86400))
+            if days_left > 7:
+                return
 
-        last = current_user.seller_reminder_sent_at
-        if last and (now - last) < timedelta(hours=24):
-            return
+            last = current_user.seller_reminder_sent_at
+            if last and (now - last) < timedelta(hours=24):
+                return
 
-        if days_left == 1:
-            message = 'Your seller plan expires in 1 day. Renew to keep products visible.'
-        else:
-            message = f'Your seller plan expires in {days_left} days. Renew to keep products visible.'
+            if days_left == 1:
+                message = 'Your seller plan expires in 1 day. Renew to keep products visible.'
+            else:
+                message = f'Your seller plan expires in {days_left} days. Renew to keep products visible.'
 
-        flash(message, 'warning')
-        current_user.seller_reminder_sent_at = now
-        db.session.commit()
+            flash(message, 'warning')
+            current_user.seller_reminder_sent_at = now
+            db.session.commit()
+        except Exception as exc:
+            db.session.rollback()
+            app.logger.warning(f'Seller expiry reminder skipped due to error: {exc}')
 
     @app.before_request
     def enforce_word_limit():
@@ -302,14 +311,18 @@ def register_context_processors(app):
     @app.context_processor
     def inject_global_badges():
         """Inject lightweight notification counts for global UI badges."""
-        if not current_user.is_authenticated:
-            return {}
-        from app.models import UserNotification, SellerNotification
-        notif_count = UserNotification.query.filter_by(user_id=current_user.id, read_at=None).count()
-        notif_count += SellerNotification.query.filter_by(seller_id=current_user.id, is_read=False).count()
-        return {
-            'global_notif_count': notif_count
-        }
+        try:
+            if not current_user.is_authenticated:
+                return {}
+            from app.models import UserNotification, SellerNotification
+            notif_count = UserNotification.query.filter_by(user_id=current_user.id, read_at=None).count()
+            notif_count += SellerNotification.query.filter_by(seller_id=current_user.id, is_read=False).count()
+            return {
+                'global_notif_count': notif_count
+            }
+        except Exception as exc:
+            app.logger.warning(f'Global badge injection skipped due to error: {exc}')
+            return {'global_notif_count': 0}
 
 
 def register_filters(app):
