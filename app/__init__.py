@@ -34,8 +34,6 @@ def create_app(config_name=None):
             name for name in (
                 'SECRET_KEY',
                 'DATABASE_URL',
-                'NOWPAYMENTS_API_KEY',
-                'NOWPAYMENTS_IPN_SECRET',
             )
             if not os.environ.get(name)
         ]

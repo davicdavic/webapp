@@ -51,7 +51,7 @@
                        id="productSearch" 
                        class="search-input" 
                        placeholder="Search products..."
-                       value="{{ search|default('') }}">
+                       value="{{ search|default('') }}" />
                 {% if search %}
                 <button type="button" class="search-clear" id="clearSearchBtn">×</button>
                 {% endif %}
@@ -67,7 +67,7 @@
                        id="sellerSearch" 
                        class="search-input seller-input" 
                        placeholder="Search by seller..."
-                       value="{{ seller_search|default('') }}">
+                       value="{{ seller_search|default('') }}" />
             </div>
         </div>
         
@@ -92,7 +92,7 @@
                 <img src="{{ url_for('static', filename='uploads/merch/' + product.image_filename) }}" 
                      alt="{{ product.name }}" 
                      class="product-image"
-                     loading="lazy">
+                     loading="lazy" />
                 {% else %}
                 <div class="product-image-placeholder">
                     <span>🎁</span>

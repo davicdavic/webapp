@@ -26,7 +26,7 @@
                     src="{{ url_for('static', filename='uploads/merch/' + gallery[0]) }}"
                     alt="{{ product.name }}"
                     class="merch-hero-image-img"
-                >
+                />
             </div>
             {% if gallery|length > 1 %}
             <div class="merch-gallery-grid">
@@ -36,7 +36,7 @@
                     class="merch-gallery-thumb {% if loop.first %}is-active{% endif %}"
                     data-image-src="{{ url_for('static', filename='uploads/merch/' + image_filename) }}"
                 >
-                    <img src="{{ url_for('static', filename='uploads/merch/' + image_filename) }}" alt="{{ product.name }} photo {{ loop.index }}">
+                    <img src="{{ url_for('static', filename='uploads/merch/' + image_filename) }}" alt="{{ product.name }} photo {{ loop.index }}" />
                 </button>
                 {% endfor %}
             </div>
@@ -167,36 +167,36 @@
 
             {% if product.quantity > 0 %}
             <form method="POST" action="{{ url_for('merch.buy_product', product_id=product.id) }}" class="px-panel product-buy-card">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                 <div class="px-form-group">
                     <label class="px-label">Quantity</label>
-                    <input type="number" name="quantity" id="quantity" class="px-input product-qty-input" value="1" min="1" max="{{ product.quantity }}" required>
+                    <input type="number" name="quantity" id="quantity" class="px-input product-qty-input" value="1" min="1" max="{{ product.quantity }}" required />
                 </div>
 
                 {% if product.product_type == 'physical' %}
                 <div class="px-form-group">
                     <label class="px-label">Full Name</label>
-                    <input type="text" name="shipping_name" class="px-input" required>
+                    <input type="text" name="shipping_name" class="px-input" required />
                 </div>
                 <div class="px-form-group">
                     <label class="px-label">Country</label>
-                    <input type="text" name="shipping_country" class="px-input" required>
+                    <input type="text" name="shipping_country" class="px-input" required />
                 </div>
                 <div class="px-form-group">
                     <label class="px-label">City</label>
-                    <input type="text" name="shipping_city" class="px-input" required>
+                    <input type="text" name="shipping_city" class="px-input" required />
                 </div>
                 <div class="px-form-group">
                     <label class="px-label">Phone Number</label>
-                    <input type="text" name="shipping_phone" class="px-input" required>
+                    <input type="text" name="shipping_phone" class="px-input" required />
                 </div>
                 <div class="px-form-group">
                     <label class="px-label">Share Location *</label>
                     <button type="button" id="share-location-btn" class="px-btn px-btn-secondary">Share Location</button>
                     <div id="location-status" class="px-text-sm px-text-muted product-location-status">Location not shared</div>
-                    <input type="text" name="shipping_location_text" id="shipping-location-text" class="px-input" placeholder="Your location or delivery address" required>
-                    <input type="hidden" name="shipping_lat" id="shipping-lat">
-                    <input type="hidden" name="shipping_lng" id="shipping-lng">
+                    <input type="text" name="shipping_location_text" id="shipping-location-text" class="px-input" placeholder="Your location or delivery address" required />
+                    <input type="hidden" name="shipping_lat" id="shipping-lat" />
+                    <input type="hidden" name="shipping_lng" id="shipping-lng" />
                 </div>
                 {% endif %}
 
