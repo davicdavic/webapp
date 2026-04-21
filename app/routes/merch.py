@@ -9,7 +9,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
 from app.extensions import db, cache
-from app.models import Product, ProductFile, MerchOrder, User, SellerRating, SellerReport
+from app.models import Product, ProductFile, ProductImage, MerchOrder, User, SellerRating, SellerReport
 from app.models import SellerChatConversation, SellerChatMessage, SellerNotification
 from app.services.seller_service import SELLER_PLANS
 from app.services.history_service import HistoryService
@@ -48,6 +48,21 @@ def save_merch_file(file, subfolder='merch'):
     file.save(filepath)
     
     return unique_filename
+
+
+def _save_product_gallery_images(uploaded_images, subfolder='merch'):
+    """Save up to four uploaded product images and return stored filenames."""
+    saved_filenames = []
+    for image in uploaded_images:
+        if not image or not image.filename:
+            continue
+        image_path = save_uploaded_image_optimized(image, subfolder)
+        image_filename = image_path.split('/')[-1] if image_path else None
+        if image_filename and image_filename not in saved_filenames:
+            saved_filenames.append(image_filename)
+        if len(saved_filenames) >= 4:
+            break
+    return saved_filenames
 
 def delete_merch_file(filename, subfolder='merch'):
     """Delete a stored merch file safely (best-effort)."""
@@ -737,7 +752,7 @@ def admin_create():
         contact_link = (request.form.get('contact_link') or '').strip()
         physical_quantity = request.form.get('physical_quantity', type=int, default=0)
         files = request.files.getlist('files')
-        image = request.files.get('image')
+        uploaded_images = request.files.getlist('images')
         
         if not name:
             flash('Product name is required', 'error')
@@ -764,12 +779,15 @@ def admin_create():
                 return redirect(url_for('merch.admin_create'))
         
         try:
-            # Save thumbnail if provided
-            image_filename = None
-            if image and image.filename:
+            if len([img for img in uploaded_images if img and img.filename]) > 4:
+                flash('You can upload up to 4 product photos.', 'error')
+                return redirect(url_for('merch.admin_create'))
+
+            # Save product gallery if provided
+            image_filenames = []
+            if uploaded_images:
                 try:
-                    image_path = save_uploaded_image_optimized(image, 'merch')
-                    image_filename = image_path.split('/')[-1] if image_path else None
+                    image_filenames = _save_product_gallery_images(uploaded_images, 'merch')
                 except ValueError as exc:
                     flash(str(exc), 'error')
                     return redirect(url_for('merch.admin_create'))
@@ -779,7 +797,7 @@ def admin_create():
                 name=name,
                 description=description,
                 price=price,
-                image_filename=image_filename,
+                image_filename=image_filenames[0] if image_filenames else None,
                 product_type=product_type,
                 contact_link=contact_link if product_type == 'physical' else None,
                 physical_quantity=physical_quantity if product_type == 'physical' else 0,
@@ -787,6 +805,13 @@ def admin_create():
             )
             db.session.add(product)
             db.session.flush()  # Get product ID
+
+            for index, image_filename in enumerate(image_filenames[1:], start=1):
+                db.session.add(ProductImage(
+                    product_id=product.id,
+                    image_filename=image_filename,
+                    sort_order=index
+                ))
             
             saved_files = 0
             if product_type == 'digital':
@@ -863,14 +888,33 @@ def admin_edit(product_id):
             if physical_quantity is not None and physical_quantity >= 0:
                 product.physical_quantity = physical_quantity
         
-        # Handle thumbnail upload
-        image = request.files.get('image')
-        if image and image.filename:
+        # Handle gallery upload
+        uploaded_images = request.files.getlist('images')
+        if len([img for img in uploaded_images if img and img.filename]) > 4:
+            flash('You can upload up to 4 product photos at once.', 'error')
+            return redirect(url_for('merch.admin_edit', product_id=product.id))
+
+        if uploaded_images and uploaded_images[0].filename:
             try:
-                image_path = save_uploaded_image_optimized(image, 'merch')
-                image_filename = image_path.split('/')[-1] if image_path else None
-                if image_filename:
-                    product.image_filename = image_filename
+                existing_gallery = product.gallery_filenames
+                new_filenames = _save_product_gallery_images(uploaded_images, 'merch')
+                combined_filenames = []
+                for filename in existing_gallery + new_filenames:
+                    if filename and filename not in combined_filenames:
+                        combined_filenames.append(filename)
+                if len(combined_filenames) > 4:
+                    flash('A product can show up to 4 photos total.', 'error')
+                    return redirect(url_for('merch.admin_edit', product_id=product.id))
+                if combined_filenames:
+                    product.image_filename = combined_filenames[0]
+                    product.images.delete()
+                    db.session.flush()
+                    for index, image_filename in enumerate(combined_filenames[1:], start=1):
+                        db.session.add(ProductImage(
+                            product_id=product.id,
+                            image_filename=image_filename,
+                            sort_order=index
+                        ))
             except ValueError as exc:
                 flash(str(exc), 'error')
                 return redirect(url_for('merch.admin_edit', product_id=product.id))
@@ -943,6 +987,8 @@ def admin_delete(product_id):
         # Delete associated files from disk (thumbnail + product files)
         if product.image_filename:
             delete_merch_file(product.image_filename, 'merch')
+        for gallery_image in product.images.all():
+            delete_merch_file(gallery_image.image_filename, 'merch')
         for pf in product.files.all():
             delete_merch_file(pf.file_filename, 'merch')
 
@@ -1295,5 +1341,3 @@ def notifications():
     db.session.commit()
     
     return render_template('merch/notifications.html', notifications=notifications_list)
-
-

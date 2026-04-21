@@ -195,6 +195,15 @@
             font-weight: 500;
             z-index: 1000;
             position: relative;
+            opacity: 1;
+            transform: translateY(0);
+            transition: opacity 0.18s ease, transform 0.18s ease;
+        }
+        
+        .px-alert.is-dismissing {
+            opacity: 0;
+            transform: translateY(-4px);
+            pointer-events: none;
         }
         
         .px-alert-error {
@@ -415,6 +424,7 @@
             initInstantFeedback();
             initMobileNavToggle();
             ensureCsrfTokens();
+            initFlashAutoHide();
             initWordAndFileLimits();
             document.body.classList.add('turbo-loaded');
             setTimeout(function() {
@@ -464,6 +474,21 @@
             }
             return fetch(input, opts);
         };
+
+        function initFlashAutoHide() {
+            document.querySelectorAll('.px-alert').forEach(alertBox => {
+                if (alertBox.dataset.autohideReady === '1') return;
+                alertBox.dataset.autohideReady = '1';
+                setTimeout(function() {
+                    alertBox.classList.add('is-dismissing');
+                    setTimeout(function() {
+                        if (alertBox && alertBox.parentNode) {
+                            alertBox.remove();
+                        }
+                    }, 220);
+                }, 1000);
+            });
+        }
         
         // Initialize lazy loading for images
         function initLazyLoading() {

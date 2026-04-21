@@ -613,6 +613,13 @@ class Product(db.Model):
     # Relationships
     seller = db.relationship('User', backref=db.backref('products', lazy='dynamic'))
     files = db.relationship('ProductFile', backref='product', lazy='dynamic', cascade='all, delete-orphan')
+    images = db.relationship(
+        'ProductImage',
+        backref='product',
+        lazy='dynamic',
+        cascade='all, delete-orphan',
+        order_by='ProductImage.sort_order.asc()'
+    )
     orders = db.relationship('MerchOrder', backref='product', lazy='dynamic')
     
     @property
@@ -628,9 +635,34 @@ class Product(db.Model):
         if self.product_type == 'physical':
             return max(int(self.physical_quantity or 0), 0)
         return ProductFile.query.filter_by(product_id=self.id).count()
+
+    @property
+    def gallery_filenames(self):
+        """Return up to four product image filenames including the cover image."""
+        filenames = []
+        if self.image_filename:
+            filenames.append(self.image_filename)
+        for image in self.images.all():
+            if image.image_filename and image.image_filename not in filenames:
+                filenames.append(image.image_filename)
+        return filenames[:4]
     
     def __repr__(self):
         return f'<Product {self.name} seller={self.seller_id}>'
+
+
+class ProductImage(db.Model):
+    """Gallery image for a merch product."""
+    __tablename__ = 'product_images'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False, index=True)
+    image_filename = db.Column(db.String(255), nullable=False)
+    sort_order = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<ProductImage product={self.product_id} order={self.sort_order}>'
 
 
 class ProductFile(db.Model):

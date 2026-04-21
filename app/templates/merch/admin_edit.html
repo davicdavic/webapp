@@ -50,16 +50,11 @@
                 {% endif %}
                 
                 <div class="px-form-group">
-                    <label class="px-label">Change Thumbnail Image</label>
-                    <input type="file" name="image" class="px-input" accept="image/*" title="Upload a thumbnail image">
+                    <label class="px-label">Add Product Photos</label>
+                    <input type="file" name="images" class="px-input" accept="image/*" multiple title="Upload product photos">
                     <p class="px-text-sm px-text-muted px-mt-sm">
-                        Use a 4:3 image, at least 800x600 (max 10 MB). Thumbnails are center-cropped in the store.
+                        Add up to 4 photos total. New photos are merged with the current gallery.
                     </p>
-                    {% if product.image_filename %}
-                    <p class="px-text-sm px-text-muted px-mt-sm">
-                        Current: {{ product.image_filename }}
-                    </p>
-                    {% endif %}
                 </div>
                 
                 {% if product.product_type != 'physical' %}
@@ -123,6 +118,25 @@
             </div>
             {% endif %}
             
+            {% if product.gallery_filenames %}
+            <div class="px-panel" style="margin-bottom: 20px;">
+                <h3 style="font-family: 'Press Start 2P', cursive; font-size: 0.6rem; margin-bottom: 12px;">
+                    Product Photos
+                </h3>
+                <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;">
+                    {% for image_filename in product.gallery_filenames %}
+                    <div style="background: var(--px-bg-dark); border: 3px solid var(--px-border); padding: 10px; aspect-ratio: 1 / 1;">
+                        <img
+                            src="{{ url_for('static', filename='uploads/merch/' + image_filename) }}"
+                            alt="{{ product.name }}"
+                            style="width: 100%; height: 100%; object-fit: cover; display: block;"
+                        >
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
             <div class="px-panel" style="background: var(--px-bg-dark);">
                 <h3 style="font-family: 'Press Start 2P', cursive; font-size: 0.6rem; margin-bottom: 12px;">
                     Stock Summary

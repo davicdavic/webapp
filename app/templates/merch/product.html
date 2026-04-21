@@ -7,18 +7,36 @@
     <a href="{{ url_for('merch.index') }}" class="px-btn px-btn-sm" style="margin-bottom: 20px; display: inline-block;">
         ← Back to Store
     </a>
-    
+
+    {% set gallery = product.gallery_filenames %}
     <div class="px-grid" style="grid-template-columns: 1fr 1fr; gap: 40px;">
         <!-- Product Image -->
         <div>
-            {% if product.image_filename %}
-            <div style="background: var(--px-bg-dark); border: 4px solid var(--px-border); padding: 20px;">
-                <img src="{{ url_for('static', filename='uploads/merch/' + product.image_filename) }}" 
-                     alt="{{ product.name }}" 
-                     style="width: 100%; height: auto;">
+            {% if gallery %}
+            <div class="merch-hero-image">
+                <img
+                    id="product-main-image"
+                    src="{{ url_for('static', filename='uploads/merch/' + gallery[0]) }}"
+                    alt="{{ product.name }}"
+                    class="merch-hero-image-img"
+                >
             </div>
+            {% if gallery|length > 1 %}
+            <div class="merch-gallery-grid">
+                {% for image_filename in gallery %}
+                <button
+                    type="button"
+                    class="merch-gallery-thumb {% if loop.first %}is-active{% endif %}"
+                    data-image-src="{{ url_for('static', filename='uploads/merch/' + image_filename) }}"
+                    data-image-index="{{ loop.index0 }}"
+                >
+                    <img src="{{ url_for('static', filename='uploads/merch/' + image_filename) }}" alt="{{ product.name }} photo {{ loop.index }}">
+                </button>
+                {% endfor %}
+            </div>
+            {% endif %}
             {% else %}
-            <div style="background: linear-gradient(135deg, var(--px-bg-dark), var(--px-bg-panel)); border: 4px solid var(--px-border); padding: 60px; text-align: center;">
+            <div class="merch-hero-image merch-hero-image--placeholder" style="text-align: center;">
                 <span style="font-size: 6rem;">🎁</span>
             </div>
             {% endif %}
@@ -254,12 +272,29 @@ if (shareButton && latInput && lngInput) {
 
 </script>
 
+<script>
+const galleryButtons = document.querySelectorAll('.merch-gallery-thumb');
+const mainProductImage = document.getElementById('product-main-image');
+
+galleryButtons.forEach(button => {
+    button.addEventListener('click', function() {
+        if (!mainProductImage) return;
+        mainProductImage.src = this.dataset.imageSrc;
+        galleryButtons.forEach(item => item.classList.remove('is-active'));
+        this.classList.add('is-active');
+    });
+});
+</script>
+
 <style>
 .merch-hero-image {
-    background: var(--px-bg-dark);
+    background:
+        linear-gradient(180deg, rgba(255,255,255,0.92), rgba(230,234,247,0.95)),
+        var(--px-bg-dark);
     border: 4px solid var(--px-border);
-    height: 420px;
-    padding: 20px;
+    box-shadow: 0 0 0 4px rgba(255,255,255,0.7) inset;
+    min-height: 420px;
+    padding: 18px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -277,7 +312,37 @@ if (shareButton && latInput && lngInput) {
     display: block;
 }
 
+.merch-gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 14px;
+}
+
+.merch-gallery-thumb {
+    background: #fff;
+    border: 3px solid var(--px-border);
+    box-shadow: 0 0 0 2px rgba(255,255,255,0.8) inset;
+    padding: 6px;
+    aspect-ratio: 1 / 1;
+    cursor: pointer;
+}
+
+.merch-gallery-thumb.is-active {
+    border-color: var(--px-gold);
+}
+
+.merch-gallery-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
 @media (max-width: 768px) {
+    .merch-gallery-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
     .merch-hero-image {
         height: 280px;
         padding: 12px;

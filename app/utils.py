@@ -21,8 +21,8 @@ from app.models import User
 
 
 # Allowed file extensions for uploads
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp'}
-IMAGE_ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'avif', 'jfif', 'tiff', 'tif'}
+IMAGE_ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'avif', 'jfif', 'tiff', 'tif'}
 MAX_IMAGE_UPLOAD_BYTES = 2 * 1024 * 1024
 
 
@@ -91,20 +91,23 @@ def save_uploaded_file(file, subfolder=''):
 def save_uploaded_image_optimized(file, subfolder='posts', max_bytes=MAX_IMAGE_UPLOAD_BYTES):
     """
     Save a compressed image under static/uploads/<subfolder>.
-    - validates jpg/png only
+    - validates common image uploads
     - enforces max upload size
     - deduplicates by content hash
     """
     if not file or not file.filename:
         return None
 
-    if Image is None:
-        raise ValueError('Image processing is unavailable on this server right now.')
-
     safe_name = secure_filename(file.filename)
     ext = safe_name.rsplit('.', 1)[-1].lower() if '.' in safe_name else ''
-    if ext not in IMAGE_ALLOWED_EXTENSIONS:
-        raise ValueError('Only JPG and PNG images are allowed.')
+    if ext and ext not in IMAGE_ALLOWED_EXTENSIONS:
+        raise ValueError('Please upload a valid image file.')
+
+    if Image is None:
+        saved_path = save_uploaded_file(file, subfolder)
+        if not saved_path:
+            raise ValueError('Please upload a valid image file.')
+        return saved_path
 
     raw = file.read()
     if not raw:
@@ -118,12 +121,17 @@ def save_uploaded_image_optimized(file, subfolder='posts', max_bytes=MAX_IMAGE_U
         image = Image.open(io.BytesIO(raw))
         image.load()
     except (UnidentifiedImageError, OSError):
-        raise ValueError('Invalid image file. Upload JPG or PNG only.')
+        raise ValueError('Please upload a valid image file.')
 
     # Fit into a sane resolution to reduce storage and transfer cost.
     image.thumbnail((1920, 1920))
 
-    out_ext = 'png' if ext == 'png' else 'jpg'
+    has_alpha = 'A' in image.getbands() if hasattr(image, 'getbands') else False
+    if not has_alpha and image.mode in ('P', 'LA'):
+        image = image.convert('RGBA')
+        has_alpha = True
+
+    out_ext = 'png' if has_alpha else 'jpg'
     out_name = f'{digest}.{out_ext}'
 
     upload_folder = current_app.config.get('UPLOAD_FOLDER') or os.path.join(current_app.static_folder, 'uploads')

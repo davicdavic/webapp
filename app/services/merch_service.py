@@ -52,6 +52,18 @@ class MerchService:
             if 'refunded_at' not in order_cols:
                 alter_statements.append('ALTER TABLE merch_orders ADD COLUMN refunded_at TIMESTAMP')
 
+        if 'product_images' not in table_names:
+            alter_statements.append(
+                'CREATE TABLE product_images ('
+                'id INTEGER PRIMARY KEY AUTOINCREMENT, '
+                'product_id INTEGER NOT NULL, '
+                'image_filename VARCHAR(255) NOT NULL, '
+                'sort_order INTEGER DEFAULT 0, '
+                'created_at TIMESTAMP, '
+                'FOREIGN KEY(product_id) REFERENCES products (id)'
+                ')'
+            )
+
         for statement in alter_statements:
             db.session.execute(text(statement))
 
