@@ -77,9 +77,9 @@
 
 <style>
 .old-withdraw-panel {
-    background: linear-gradient(180deg, #fff6dc, #f2dfae);
-    border-color: #6f4528;
-    box-shadow: 5px 5px 0 rgba(111, 69, 40, 0.22);
+    background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(236,241,252,0.95));
+    border-color: rgba(63, 88, 138, 0.2);
+    box-shadow: 0 5px 0 rgba(63, 88, 138, 0.12);
 }
 
 .px-form-group {
@@ -94,21 +94,21 @@
 
 .px-text-muted {
     display: block;
-    color: #6e5235;
+    color: var(--px-text-muted);
     font-size: 0.9em;
     margin-top: 0.25rem;
 }
 
 .old-withdraw-balance {
-    background: linear-gradient(180deg, #fff7db, #efddb0);
-    border: 2px solid #c7a45d;
-    color: #5a411a;
+    background: rgba(93, 132, 214, 0.08);
+    border: 2px solid rgba(93, 132, 214, 0.22);
+    color: var(--px-text);
     padding: 12px 16px;
 }
 
 .px-coins {
     font-weight: bold;
-    color: #b37a16;
+    color: var(--px-gold);
 }
 </style>
 {% endblock %}

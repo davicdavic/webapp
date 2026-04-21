@@ -10,7 +10,7 @@
     </a>
 </div>
 
-<div class="px-panel px-mb-lg" style="padding: 16px;">
+<div class="px-panel admin-users-surface px-mb-lg" style="padding: 16px;">
     <form method="GET" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
         <input type="text" name="q" value="{{ q }}" placeholder="Search by username or ID..." class="px-input" style="flex: 1; margin: 0;">
         <button type="submit" class="px-btn px-btn-primary">Search</button>
@@ -138,8 +138,14 @@
 
 <style>
 .admin-users-panel {
-    background: linear-gradient(180deg, #fff6dc, #f2dfae);
-    border-color: #6f4528;
+    background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(236,241,252,0.95));
+    border-color: rgba(63, 88, 138, 0.2);
+    box-shadow: 0 5px 0 rgba(63, 88, 138, 0.12);
+}
+
+.admin-users-surface {
+    background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(236,241,252,0.95));
+    box-shadow: 0 5px 0 rgba(63, 88, 138, 0.12);
 }
 
 .admin-users-table-wrap {
@@ -152,16 +158,16 @@
 
 .admin-users-table th,
 .admin-users-table td {
-    border-bottom-color: rgba(111, 69, 40, 0.25);
+    border-bottom-color: rgba(63, 88, 138, 0.16);
 }
 
 .admin-users-table tr:hover td {
-    background: rgba(255,255,255,0.35);
+    background: rgba(93, 132, 214, 0.04);
 }
 
 .px-coins {
     font-weight: bold;
-    color: #b37a16;
+    color: var(--px-gold);
 }
 
 .px-badge {
@@ -169,12 +175,12 @@
 }
 
 .px-badge-admin {
-    background: #a94239;
+    background: #d05c4c;
     color: white;
 }
 
 .px-badge-user {
-    background: #628847;
+    background: #5d84d6;
     color: white;
 }
 
@@ -192,12 +198,12 @@
 }
 
 .px-pagination-info {
-    color: #666;
+    color: var(--px-text-muted);
 }
 
 .px-btn-danger {
-    background: linear-gradient(180deg, #d87060, #b24d3f);
-    border: 2px solid #7c3128;
+    background: linear-gradient(180deg, #e38272, #cd6255);
+    border: 2px solid #b04d41;
     color: #fff;
 }
 </style>

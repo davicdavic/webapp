@@ -6,14 +6,14 @@
 <h1 class="px-mb-lg">{{ coin_type }} Deposit Payment #{{ deposit.id }}</h1>
 
 <div class="px-grid payment-layout" style="grid-template-columns: 1.3fr 1fr; gap: 16px;">
-    <div class="px-panel">
+    <div class="px-panel payment-card">
         <div class="px-panel-header">
             <h2 class="px-panel-title">Payment Details</h2>
         </div>
 
         <div class="px-form-group">
             <label class="px-label">Coin Selected</label>
-            <div class="px-input" style="display: flex; align-items: center; color: var(--px-cyan);">
+            <div class="px-input payment-input-box" style="display: flex; align-items: center;">
                 {{ coin_type }}
             </div>
         </div>
@@ -58,15 +58,15 @@
         <a href="{{ url_for('deposit.index') }}" class="px-btn px-btn-secondary" style="margin-top: 10px;">← Back to Deposits</a>
     </div>
 
-    <div class="px-panel">
+    <div class="px-panel payment-card">
         <div class="px-panel-header">
             <h2 class="px-panel-title">Scan QR Code</h2>
         </div>
         <div class="qr-container">
             <img src="{{ qr_code }}" alt="Deposit QR" class="qr-image">
         </div>
-        <div style="margin-top: 16px; padding: 12px; background: var(--px-bg-secondary); border-left: 3px solid var(--px-orange);">
-            <p class="px-text-sm" style="margin: 0; color: var(--px-orange);">📋 Instructions:</p>
+        <div class="payment-note-box" style="margin-top: 16px; padding: 12px;">
+            <p class="px-text-sm payment-note-title" style="margin: 0;">Instructions:</p>
             <ul class="px-text-sm" style="margin: 8px 0 0 0; color: var(--px-text-muted); padding-left: 16px;">
                 <li>Send exactly <strong>{{ expected_amount_display }} {{ coin_type }}</strong></li>
                 <li>Use BNB Smart Chain network</li>
@@ -77,6 +77,15 @@
 </div>
 
 <style>
+.payment-card {
+    background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(236,241,252,0.95));
+    box-shadow: 0 5px 0 rgba(63, 88, 138, 0.12);
+}
+
+.payment-input-box {
+    color: var(--px-blue);
+}
+
 .wallet-row {
     display: flex;
     gap: 10px;
@@ -90,7 +99,7 @@
     border: 2px solid var(--px-border);
     border-radius: 4px;
     overflow-wrap: anywhere;
-    background: var(--px-bg-dark);
+    background: rgba(93, 132, 214, 0.08);
     color: var(--px-text);
     font-family: 'VT323', monospace;
     font-size: 0.9rem;
@@ -98,36 +107,36 @@
 
 .exact-amount-box {
     padding: 12px;
-    background: var(--px-bg-secondary);
-    border: 3px solid var(--px-green);
+    background: rgba(106, 181, 115, 0.08);
+    border: 3px solid rgba(106, 181, 115, 0.35);
     border-radius: 4px;
     font-size: 1.2rem;
     font-weight: bold;
-    color: var(--px-green-light);
+    color: var(--px-green);
     font-family: 'VT323', monospace;
     text-align: center;
 }
 
 .reward-box {
     padding: 12px;
-    background: var(--px-bg-secondary);
-    border: 3px solid var(--px-gold);
+    background: rgba(219, 179, 58, 0.1);
+    border: 3px solid rgba(219, 179, 58, 0.35);
     border-radius: 4px;
     font-size: 1.2rem;
     font-weight: bold;
-    color: var(--px-gold-light);
+    color: #9f7300;
     font-family: 'VT323', monospace;
     text-align: center;
 }
 
 .countdown-box {
     padding: 12px;
-    background: var(--px-bg-secondary);
-    border: 3px solid var(--px-cyan);
+    background: rgba(93, 132, 214, 0.08);
+    border: 3px solid rgba(93, 132, 214, 0.3);
     border-radius: 4px;
     font-size: 1.5rem;
     font-weight: bold;
-    color: var(--px-cyan-light);
+    color: var(--px-blue);
     font-family: 'Press Start 2P', cursive;
     text-align: center;
 }
@@ -136,7 +145,7 @@
     display: flex;
     justify-content: center;
     padding: 16px;
-    background: var(--px-bg-secondary);
+    background: rgba(93, 132, 214, 0.06);
     border-radius: 4px;
 }
 
@@ -144,10 +153,19 @@
     width: min(85vw, 240px);
     height: auto;
     border-radius: 8px;
-    border: 3px solid var(--px-cyan);
+    border: 3px solid rgba(93, 132, 214, 0.3);
     background: #fff;
     padding: 10px;
-    box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+    box-shadow: 0 6px 18px rgba(63, 88, 138, 0.12);
+}
+
+.payment-note-box {
+    background: rgba(93, 132, 214, 0.06);
+    border-left: 3px solid rgba(93, 132, 214, 0.35);
+}
+
+.payment-note-title {
+    color: var(--px-blue);
 }
 
 .px-alert {
@@ -157,8 +175,8 @@
 }
 
 .px-alert-info {
-    background-color: rgba(0, 150, 200, 0.1);
-    border-left-color: var(--px-cyan);
+    background-color: rgba(93, 132, 214, 0.08);
+    border-left-color: rgba(93, 132, 214, 0.35);
     color: var(--px-text);
 }
 

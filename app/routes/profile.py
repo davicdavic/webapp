@@ -3,7 +3,7 @@ Profile Routes
 User profile management
 """
 from datetime import datetime
-from flask import Blueprint, render_template, redirect, url_for, flash, request, abort
+from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
 from app.extensions import db, cache
 from app.models import User, SellerRequest, SellerRating, Product, MerchOrder, UserNotification
@@ -73,16 +73,11 @@ def index():
 @login_required
 def view(username):
     """View user profile"""
-    # Only allow viewing your own profile unless admin.
-    if not current_user.is_admin():
-        if username.lower() != current_user.username.lower():
-            # Hide existence of other users' profiles
-            abort(404)
+    if username.lower() == current_user.username.lower():
         user = current_user
         stats = UserService.get_user_stats(current_user.id)
         return render_template('profile/view.html', profile_user=user, stats=stats)
 
-    # Admin view: cache user profile for 2 minutes
     cache_key = f'profile_view_{username}'
     cached_data = cache.get(cache_key)
 
@@ -418,5 +413,4 @@ def leaderboard():
                            tab='users',
                            leaders=cached['leaders'],
                            user_rank=cached['user_rank'])
-
 

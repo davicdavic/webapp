@@ -3,7 +3,12 @@
 {% block title %}Leaderboard - RetroQuest{% endblock %}
 
 {% block content %}
-<h1 class="px-mb-lg">Leaderboard</h1>
+<div class="leaderboard-shell">
+<div class="px-panel leaderboard-hero px-mb-lg">
+    <p class="leaderboard-kicker">Hall of Fame</p>
+    <h1 class="px-mb-sm">Leaderboard</h1>
+    <p class="px-text-muted">See the strongest players and top sellers across the app.</p>
+</div>
 
 <div class="px-flex px-gap-md px-mb-lg">
     <a href="{{ url_for('profile.leaderboard', tab='users') }}" class="px-btn {% if tab == 'users' %}px-btn-primary{% else %}px-btn-secondary{% endif %}">Top Users</a>
@@ -13,7 +18,7 @@
 {% if tab == 'users' %}
     <!-- User's Rank -->
     {% if user_rank %}
-    <div class="px-panel px-mb-lg" style="background: linear-gradient(90deg, rgba(255, 215, 0, 0.1), transparent);">
+    <div class="px-panel leaderboard-rank-panel px-mb-lg">
         <div class="px-flex px-items-center px-justify-between">
             <div>
                 <span class="px-text-muted">Your Rank:</span>
@@ -28,7 +33,7 @@
     {% endif %}
 
     <!-- Top Players -->
-    <div class="px-panel">
+    <div class="px-panel leaderboard-list-panel">
         <div class="px-panel-header">
             <h2 class="px-panel-title">Top Players</h2>
         </div>
@@ -39,16 +44,18 @@
                 <div class="px-leaderboard-rank {% if loop.index == 1 %}gold{% elif loop.index == 2 %}silver{% elif loop.index == 3 %}bronze{% endif %}">
                     #{{ loop.index }}
                 </div>
-                <div class="px-avatar px-avatar-sm">
+                <a href="{{ url_for('profile.view', username=user.username) }}" class="px-avatar px-avatar-sm leaderboard-profile-avatar">
                     {{ user.username[0]|upper }}
-                </div>
+                </a>
                 <div class="px-leaderboard-info">
-                    <div class="px-leaderboard-name">{{ user.username }}</div>
+                    <div class="px-leaderboard-name">
+                        <a href="{{ url_for('profile.view', username=user.username) }}" class="leaderboard-profile-link">{{ user.username }}</a>
+                    </div>
                     <div class="px-text-sm px-text-muted">ID: #{{ user.user_6digit }}</div>
                 </div>
                 <div class="px-leaderboard-score">
                     <span class="px-coin"></span>
-                    {{ user.coins }}
+                    {{ user.coins|format_number }}
                 </div>
             </li>
             {% endfor %}
@@ -59,7 +66,7 @@
         {% endif %}
     </div>
 {% else %}
-    <div class="px-panel">
+    <div class="px-panel leaderboard-list-panel">
         <div class="px-panel-header">
             <h2 class="px-panel-title">Top Sellers</h2>
         </div>
@@ -101,6 +108,32 @@
 {% endif %}
 
 <style>
+.leaderboard-hero,
+.leaderboard-rank-panel,
+.leaderboard-list-panel {
+    background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(236,241,252,0.95));
+    box-shadow: 0 5px 0 rgba(63, 88, 138, 0.12);
+}
+
+.leaderboard-kicker {
+    margin: 0 0 8px;
+    color: var(--px-blue);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.leaderboard-profile-link {
+    color: var(--px-text);
+    text-decoration: none;
+}
+
+.leaderboard-profile-link:hover,
+.leaderboard-profile-avatar:hover {
+    opacity: 0.82;
+}
+
 @media (max-width: 768px) {
     .px-leaderboard-item {
         grid-template-columns: auto auto 1fr !important;
@@ -114,4 +147,5 @@
     }
 }
 </style>
+</div>
 {% endblock %}

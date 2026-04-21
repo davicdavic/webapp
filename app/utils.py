@@ -274,28 +274,40 @@ def get_user_stats(user_id):
 
 def generate_qr_code(data):
     """Generate QR code for deposit address"""
-    import qrcode
     from io import BytesIO
     import base64
-    
-    qr = qrcode.QRCode(
-        version=1,
-        error_correction=qrcode.constants.ERROR_CORRECT_L,
-        box_size=10,
-        border=4,
-    )
-    qr.add_data(data)
-    qr.make(fit=True)
-    
-    img = qr.make_image(fill_color="black", back_color="white")
-    
-    # Convert to base64
-    buffer = BytesIO()
-    img.save(buffer, format='PNG')
-    buffer.seek(0)
-    
-    img_base64 = base64.b64encode(buffer.getvalue()).decode()
-    return f"data:image/png;base64,{img_base64}"
+    try:
+        import qrcode
+
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=10,
+            border=4,
+        )
+        qr.add_data(data)
+        qr.make(fit=True)
+
+        img = qr.make_image(fill_color="black", back_color="white")
+
+        buffer = BytesIO()
+        img.save(buffer, format='PNG')
+        buffer.seek(0)
+
+        img_base64 = base64.b64encode(buffer.getvalue()).decode()
+        return f"data:image/png;base64,{img_base64}"
+    except Exception:
+        svg = (
+            "<svg xmlns='http://www.w3.org/2000/svg' width='320' height='320' viewBox='0 0 320 320'>"
+            "<rect width='320' height='320' fill='white'/>"
+            "<rect x='16' y='16' width='288' height='288' fill='none' stroke='#4f6fb4' stroke-width='8'/>"
+            "<text x='160' y='120' text-anchor='middle' font-family='monospace' font-size='22' fill='#2d3b55'>QR Unavailable</text>"
+            "<text x='160' y='160' text-anchor='middle' font-family='monospace' font-size='15' fill='#60708e'>Copy the wallet address</text>"
+            "<text x='160' y='188' text-anchor='middle' font-family='monospace' font-size='15' fill='#60708e'>and exact amount below.</text>"
+            "</svg>"
+        )
+        encoded = base64.b64encode(svg.encode('utf-8')).decode('ascii')
+        return f"data:image/svg+xml;base64,{encoded}"
 
 
 def get_leaderboard(limit=10, game_id='emperors_circle'):

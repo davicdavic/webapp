@@ -3,10 +3,15 @@
 {% block title %}Admin Panel - RetroQuest{% endblock %}
 
 {% block content %}
-<h1 class="px-mb-lg">Admin Panel</h1>
+<div class="admin-shell">
+<div class="px-panel admin-hero px-mb-lg">
+    <p class="admin-kicker">Control Center</p>
+    <h1 class="px-mb-sm">Admin Panel</h1>
+    <p class="px-text-muted">Manage users, payments, missions, and seller activity from one clean dashboard.</p>
+</div>
 
 <!-- Quick Stats -->
-<div class="px-stats-grid">
+<div class="px-stats-grid admin-stats-grid">
     <div class="px-stat-card">
         <div class="px-stat-value">{{ total_users }}</div>
         <div class="px-stat-label">Total Users</div>
@@ -30,7 +35,7 @@
 </div>
 
 <!-- Admin Navigation -->
-<div class="px-panel px-mb-lg">
+<div class="px-panel admin-surface px-mb-lg">
     <div class="px-flex px-flex-wrap px-gap-md">
         <a href="{{ url_for('admin.users') }}" class="px-btn px-btn-secondary">Users</a>
         <a href="{{ url_for('admin.missions') }}" class="px-btn px-btn-secondary">Missions</a>
@@ -104,9 +109,9 @@
 </div>
 
 <!-- Recent Activity -->
-<div class="px-grid" style="grid-template-columns: 1fr 1fr;">
+<div class="px-grid admin-activity-grid" style="grid-template-columns: 1fr 1fr;">
     <!-- Recent Deposits -->
-    <div class="px-panel">
+    <div class="px-panel admin-surface">
         <div class="px-panel-header">
             <h2 class="px-panel-title">Recent Deposits</h2>
             <a href="{{ url_for('admin.deposits') }}" class="px-btn px-btn-sm px-btn-secondary">View All</a>
@@ -148,7 +153,7 @@
     </div>
 
     <!-- Recent Withdrawals -->
-    <div class="px-panel">
+    <div class="px-panel admin-surface">
         <div class="px-panel-header">
             <h2 class="px-panel-title">Recent Withdrawals</h2>
             <a href="{{ url_for('admin.withdrawals') }}" class="px-btn px-btn-sm px-btn-secondary">View All</a>
@@ -181,5 +186,28 @@
         <p class="px-text-muted">No recent withdrawals</p>
         {% endif %}
     </div>
+<style>
+.admin-hero,
+.admin-surface,
+.admin-stats-grid .px-stat-card {
+    background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(236,241,252,0.95));
+    box-shadow: 0 5px 0 rgba(63, 88, 138, 0.12);
+}
+
+.admin-kicker {
+    margin: 0 0 8px;
+    color: var(--px-blue);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+@media (max-width: 900px) {
+    .admin-activity-grid {
+        grid-template-columns: 1fr !important;
+    }
+}
+</style>
 </div>
 {% endblock %}

@@ -243,30 +243,29 @@
 
 <style>
 .finance-page {
-    --finance-wood-dark: #6d4327;
-    --finance-paper: #f7ebc0;
-    --finance-sky: #d6ebff;
+    --finance-surface: rgba(255,255,255,0.98);
+    --finance-surface-soft: rgba(236,241,252,0.95);
+    --finance-border: rgba(63, 88, 138, 0.2);
+    --finance-shadow: rgba(63, 88, 138, 0.12);
 }
 
 .finance-header {
-    background:
-        linear-gradient(180deg, rgba(255,255,255,0.3), rgba(255,255,255,0) 30%),
-        linear-gradient(180deg, var(--finance-sky), #f4dfa7 58%, #c98e52 58%, #c98e52 62%, #87a75b 62%, #87a75b 100%);
-    border-color: var(--finance-wood-dark);
-    box-shadow: 6px 6px 0 rgba(109, 67, 39, 0.28);
+    background: linear-gradient(180deg, var(--finance-surface), var(--finance-surface-soft));
+    border-color: var(--finance-border);
+    box-shadow: 0 5px 0 var(--finance-shadow);
 }
 
 .finance-header::before,
 .finance-card::before,
 .finance-note-panel::before {
-    border-color: rgba(255,255,255,0.25);
+    border-color: rgba(93, 132, 214, 0.12);
 }
 
 .finance-kicker {
     margin: 0 0 12px;
     font-family: 'Press Start 2P', cursive;
     font-size: 0.55rem;
-    color: var(--finance-wood-dark);
+    color: var(--px-blue);
     text-transform: uppercase;
 }
 
@@ -282,9 +281,7 @@
 }
 
 .finance-toggle.active {
-    background: linear-gradient(180deg, #d67f60, #b85b40) !important;
-    border-color: #84412c !important;
-    color: #fff7ea !important;
+    box-shadow: 0 0 0 2px rgba(255,255,255,0.7) inset;
 }
 
 .finance-section {
@@ -292,21 +289,21 @@
 }
 
 .finance-card {
-    border-color: var(--finance-wood-dark);
-    background: linear-gradient(180deg, #fbf2d4, var(--finance-paper));
-    box-shadow: 5px 5px 0 rgba(109, 67, 39, 0.2);
+    border-color: var(--finance-border);
+    background: linear-gradient(180deg, var(--finance-surface), var(--finance-surface-soft));
+    box-shadow: 0 5px 0 var(--finance-shadow);
 }
 
 .finance-note-panel {
-    background: linear-gradient(180deg, #fff7db, #efddb0);
-    border-color: #c59b54;
+    background: rgba(93, 132, 214, 0.06);
+    border-color: rgba(93, 132, 214, 0.18);
 }
 
 .finance-inline-code {
-    background: #fff8df;
-    border: 2px solid #cba65e;
+    background: rgba(93, 132, 214, 0.08);
+    border: 2px solid rgba(93, 132, 214, 0.16);
     padding: 4px 8px;
-    color: #4d3215;
+    color: var(--px-text);
     font-family: monospace;
 }
 
