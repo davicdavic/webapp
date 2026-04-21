@@ -135,6 +135,18 @@
                     <span class="seller-link">Sold by: Admin</span>
                     {% endif %}
                 </div>
+
+                {% set feedback = product_feedbacks.get(product.id) if product_feedbacks else None %}
+                <div class="product-feedback-meta">
+                    <span class="feedback-chip">
+                        {% set product_stars = (feedback.avg_rating if feedback else 0)|round(0, 'common')|int %}
+                        {% for i in range(1, 6) %}{% if i <= product_stars %}★{% else %}☆{% endif %}{% endfor %}
+                        {{ feedback.rating_count if feedback else 0 }}
+                    </span>
+                    <span class="feedback-chip">Review {{ feedback.review_count if feedback else 0 }}</span>
+                    <span class="feedback-chip">Like {{ feedback.like_count if feedback else 0 }}</span>
+                    <span class="feedback-chip">Dislike {{ feedback.dislike_count if feedback else 0 }}</span>
+                </div>
                 
                 <div class="product-footer">
                     <div class="product-price">
@@ -522,6 +534,25 @@
     font-size: 0.8rem;
 }
 
+.product-feedback-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+.feedback-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 7px;
+    font-size: 0.68rem;
+    color: var(--px-cyan-dark);
+    background: rgba(93, 132, 214, 0.07);
+    border: 1px solid rgba(93, 132, 214, 0.14);
+    line-height: 1.2;
+}
+
 .product-footer {
     display: flex;
     justify-content: space-between;
@@ -645,6 +676,16 @@
         gap: 6px;
         margin-bottom: 10px;
         font-size: 0.72rem;
+    }
+
+    .product-feedback-meta {
+        gap: 5px;
+        margin-bottom: 8px;
+    }
+
+    .feedback-chip {
+        font-size: 0.6rem;
+        padding: 3px 6px;
     }
 
     .seller-avatar {
@@ -854,6 +895,12 @@
                     ${product.seller_username}
                    </a>`
                 : '<span class="seller-link">Sold by: Admin</span>';
+            const feedback = product.feedback || {};
+            const roundedStars = Math.round(Number(feedback.avg_rating || 0));
+            let starsHtml = '';
+            for (let i = 1; i <= 5; i += 1) {
+                starsHtml += i <= roundedStars ? '★' : '☆';
+            }
             
             const actionBtn = product.quantity > 0
                 ? `<a href="/store/product/${product.id}" class="px-btn px-btn-primary px-btn-sm">Buy Now</a>`
@@ -874,6 +921,12 @@
                     <h3 class="product-title">${product.name}</h3>
                     <p class="product-description">${description}${descSuffix}</p>
                     <div class="product-seller">${sellerHtml}</div>
+                    <div class="product-feedback-meta">
+                        <span class="feedback-chip">${starsHtml} ${Number(feedback.rating_count || 0)}</span>
+                        <span class="feedback-chip">Review ${Number(feedback.review_count || 0)}</span>
+                        <span class="feedback-chip">Like ${Number(feedback.like_count || 0)}</span>
+                        <span class="feedback-chip">Dislike ${Number(feedback.dislike_count || 0)}</span>
+                    </div>
                     <div class="product-footer">
                         <div class="product-price">
                             <span class="px-coin"></span>

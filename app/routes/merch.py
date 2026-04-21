@@ -129,6 +129,60 @@ def _product_feedback_payload(product_id):
     return summary
 
 
+def _product_feedback_map(product_ids):
+    """Return compact feedback stats for many products at once."""
+    product_ids = [pid for pid in set(product_ids or []) if pid]
+    if not product_ids:
+        return {}
+
+    ratings = db.session.query(
+        ProductRating.product_id,
+        func.coalesce(func.avg(ProductRating.rating), 0).label('avg_rating'),
+        func.count(ProductRating.id).label('rating_count')
+    ).filter(ProductRating.product_id.in_(product_ids))\
+     .group_by(ProductRating.product_id)\
+     .all()
+
+    reactions = db.session.query(
+        ProductReaction.product_id,
+        ProductReaction.reaction_type,
+        func.count(ProductReaction.id).label('reaction_count')
+    ).filter(ProductReaction.product_id.in_(product_ids))\
+     .group_by(ProductReaction.product_id, ProductReaction.reaction_type)\
+     .all()
+
+    reviews = db.session.query(
+        ProductReview.product_id,
+        func.count(ProductReview.id).label('review_count')
+    ).filter(ProductReview.product_id.in_(product_ids))\
+     .group_by(ProductReview.product_id)\
+     .all()
+
+    feedback_map = {
+        pid: {
+            'avg_rating': 0.0,
+            'rating_count': 0,
+            'like_count': 0,
+            'dislike_count': 0,
+            'review_count': 0
+        }
+        for pid in product_ids
+    }
+
+    for row in ratings:
+        feedback_map[row.product_id]['avg_rating'] = float(row.avg_rating or 0)
+        feedback_map[row.product_id]['rating_count'] = int(row.rating_count or 0)
+
+    for row in reactions:
+        key = 'like_count' if row.reaction_type == 'like' else 'dislike_count'
+        feedback_map[row.product_id][key] = int(row.reaction_count or 0)
+
+    for row in reviews:
+        feedback_map[row.product_id]['review_count'] = int(row.review_count or 0)
+
+    return feedback_map
+
+
 def _apply_store_filters(query, search='', seller_search='', product_type=''):
     """Apply shared store filters for page and API results."""
     if product_type in {'digital', 'physical'}:
@@ -211,6 +265,7 @@ def index():
          .group_by(SellerRating.seller_id)\
          .all()
         rating_map = {row.seller_id: {'avg': float(row.avg_rating or 0), 'count': int(row.rating_count or 0)} for row in rows}
+    product_feedbacks = _product_feedback_map([p.id for p in products])
 
     return render_template('merch/index.html', 
                          products=products, 
@@ -219,7 +274,8 @@ def index():
                          product_type=product_type,
                          sort=sort,
                          pagination=products_page,
-                         seller_ratings=rating_map)
+                         seller_ratings=rating_map,
+                         product_feedbacks=product_feedbacks)
 
 
 @merch_bp.route('/api/products')
@@ -259,6 +315,8 @@ def api_products():
     end = start + limit
     paginated = products[start:end]
     
+    product_feedbacks = _product_feedback_map([p.id for p in paginated])
+
     return jsonify({
         'products': [{
             'id': p.id,
@@ -269,7 +327,14 @@ def api_products():
             'product_type': p.product_type,
             'seller_id': p.seller_id,
             'quantity': p.quantity,
-            'seller_username': p.seller.username if p.seller else None
+            'seller_username': p.seller.username if p.seller else None,
+            'feedback': product_feedbacks.get(p.id, {
+                'avg_rating': 0.0,
+                'rating_count': 0,
+                'like_count': 0,
+                'dislike_count': 0,
+                'review_count': 0
+            })
         } for p in paginated],
         'page': page,
         'limit': limit,
