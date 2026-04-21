@@ -1,0 +1,307 @@
+{% extends "base.html" %}
+
+{% block title %}{{ product.name }} - Merch Store{% endblock %}
+
+{% block content %}
+<div class="px-mb-lg">
+    <a href="{{ url_for('merch.index') }}" class="px-btn px-btn-sm" style="margin-bottom: 20px; display: inline-block;">
+        ← Back to Store
+    </a>
+    
+    <div class="px-grid" style="grid-template-columns: 1fr 1fr; gap: 40px;">
+        <!-- Product Image -->
+        <div>
+            {% if product.image_filename %}
+            <div style="background: var(--px-bg-dark); border: 4px solid var(--px-border); padding: 20px;">
+                <img src="{{ url_for('static', filename='uploads/merch/' + product.image_filename) }}" 
+                     alt="{{ product.name }}" 
+                     style="width: 100%; height: auto;">
+            </div>
+            {% else %}
+            <div style="background: linear-gradient(135deg, var(--px-bg-dark), var(--px-bg-panel)); border: 4px solid var(--px-border); padding: 60px; text-align: center;">
+                <span style="font-size: 6rem;">🎁</span>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Product Info -->
+        <div>
+            <h1 style="font-family: 'Press Start 2P', cursive; font-size: 1.2rem; margin-bottom: 16px; color: var(--px-gold);">
+                {{ product.name }}
+            </h1>
+            
+            <div style="font-family: 'Press Start 2P', cursive; font-size: 1.5rem; margin-bottom: 20px; color: var(--px-gold);">
+                🪙 {{ product.price }} <span style="font-size: 0.8rem; color: var(--px-text-muted);">per item</span>
+            </div>
+
+            <div class="px-panel" style="margin-bottom: 20px;">
+                <h3 style="font-family: 'Press Start 2P', cursive; font-size: 0.6rem; margin-bottom: 12px;">Type</h3>
+                <p class="px-text-sm px-text-muted">{{ (product.product_type or 'digital')|title }}</p>
+            </div>
+
+            {% if product.seller %}
+            <div class="px-panel" style="margin-bottom: 20px;">
+                <h3 style="font-family: 'Press Start 2P', cursive; font-size: 0.6rem; margin-bottom: 12px;">Seller</h3>
+                <div class="px-text-sm">
+                    Sold by:
+                    <a href="{{ url_for('merch.seller_profile', seller_id=product.seller_id) }}">
+                        <strong>{{ product.seller.username }}</strong>
+                    </a>
+                    {% if seller_sales is not none %}
+                        <span>? ?? {{ seller_sales|format_number }}</span>
+                    {% endif %}
+                    {% if seller_rating %}
+                        {% set stars = seller_rating.avg|round(0, 'common')|int %}
+                        <span>? Rating:
+                            {% for i in range(1, 6) %}
+                                {% if i <= stars %}?{% else %}?{% endif %}
+                            {% endfor %}
+                            ({{ seller_rating.count }})
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+            
+            {% if product.description %}
+            <div class="px-panel" style="margin-bottom: 20px;">
+                <h3 style="font-family: 'Press Start 2P', cursive; font-size: 0.6rem; margin-bottom: 12px;">Description</h3>
+                <p class="px-text-muted">{{ product.description }}</p>
+            </div>
+            {% endif %}
+            
+
+            {% if product.product_type == 'physical' and product.contact_link %}
+            <div class="px-panel" style="margin-bottom: 20px;">
+                <h3 style="font-family: 'Press Start 2P', cursive; font-size: 0.6rem; margin-bottom: 12px;">Seller Contact</h3>
+                <p class="px-text-sm px-text-muted">
+                    <a href="{{ product.contact_link }}" target="_blank">{{ product.contact_link }}</a>
+                </p>
+                <p class="px-text-sm px-text-muted">Coins are held in escrow until you confirm delivery.</p>
+            </div>
+            {% endif %}
+
+            <!-- Stock Info -->
+            <div class="px-panel" style="margin-bottom: 20px;">
+                <h3 style="font-family: 'Press Start 2P', cursive; font-size: 0.6rem; margin-bottom: 12px;">Stock</h3>
+                {% if product.quantity > 5 %}
+                <div style="color: var(--px-green); font-size: 1.2rem;">
+                    ✅ {{ product.quantity }} items available
+                </div>
+                {% elif product.quantity > 0 %}
+                <div style="color: var(--px-orange); font-size: 1.2rem;">
+                    ⚠️ Only {{ product.quantity }} items left!
+                </div>
+                {% else %}
+                <div style="color: var(--px-text-muted); font-size: 1.2rem;">
+                    ❌ Sold Out
+                </div>
+                {% endif %}
+            </div>
+            
+            <!-- Your Balance -->
+            <div class="px-panel" style="margin-bottom: 20px; background: var(--px-bg-dark);">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span class="px-text-muted">Your Balance:</span>
+                    <span style="font-family: 'Press Start 2P', cursive; color: var(--px-gold);">
+                        🪙 {{ current_user.coins|default(0)|format_number }}
+                    </span>
+                </div>
+            </div>
+            
+            <!-- Buy Form -->
+            {% if product.quantity > 0 %}
+            <form method="POST" action="{{ url_for('merch.buy_product', product_id=product.id) }}">
+                <div class="px-form-group">
+                    <label class="px-label">Quantity</label>
+                    <input type="number" name="quantity" id="quantity" 
+                           class="px-input" 
+                           value="1" 
+                           min="1" 
+                           max="{{ product.quantity }}"
+                           required
+                           style="width: 120px;">
+                </div>
+                
+                {% if product.product_type == 'physical' %}
+                <div class="px-form-group">
+                    <label class="px-label">Full Name</label>
+                    <input type="text" name="shipping_name" class="px-input" required>
+                </div>
+                <div class="px-form-group">
+                    <label class="px-label">Country</label>
+                    <input type="text" name="shipping_country" class="px-input" required>
+                </div>
+                <div class="px-form-group">
+                    <label class="px-label">City</label>
+                    <input type="text" name="shipping_city" class="px-input" required>
+                </div>
+                <div class="px-form-group">
+                    <label class="px-label">Phone Number</label>
+                    <input type="text" name="shipping_phone" class="px-input" required>
+                </div>
+                <div class="px-form-group">
+                    <label class="px-label">Share Location *</label>
+                    <button type="button" id="share-location-btn" class="px-btn px-btn-secondary">Share Location</button>
+                    <div id="location-status" class="px-text-sm px-text-muted" style="margin-top: 6px;">Location not shared</div>
+                    <input type="hidden" name="shipping_lat" id="shipping-lat">
+                    <input type="hidden" name="shipping_lng" id="shipping-lng">
+                    <input type="hidden" name="shipping_location_text" id="shipping-location-text">
+                </div>
+                {% endif %}
+
+                <div style="margin: 20px 0; padding: 16px; background: var(--px-bg-dark); border: 2px solid var(--px-border);">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                        <span class="px-text-muted">Price per item:</span>
+                        <span>🪙 {{ product.price }}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                        <span class="px-text-muted">Quantity:</span>
+                        <span id="qty-display">1</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding-top: 8px; border-top: 2px solid var(--px-border); font-family: 'Press Start 2P', cursive; font-size: 0.8rem;">
+                        <span>Total:</span>
+                        <span style="color: var(--px-gold);" id="total-display">🪙 {{ product.price }}</span>
+                    </div>
+                </div>
+                
+                {% if current_user.coins >= product.price %}
+                <button type="submit" id="order-submit-btn" class="btn btn-primary" style="width: 100%; padding: 16px; font-size: 0.7rem;">
+                    🛒 Buy Now
+                </button>
+                {% else %}
+                <button type="button" class="btn" disabled style="width: 100%; padding: 16px; font-size: 0.7rem; opacity: 0.5; cursor: not-allowed; background: var(--px-text-muted); color: #000;">
+                    Insufficient Balance
+                </button>
+                {% endif %}
+            </form>
+            {% else %}
+            <button class="btn" disabled style="width: 100%; padding: 16px; font-size: 0.7rem; opacity: 0.5; cursor: not-allowed; background: var(--px-text-muted); color: #000;">
+                Sold Out
+            </button>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+const quantityInput = document.getElementById('quantity');
+const qtyDisplay = document.getElementById('qty-display');
+const totalDisplay = document.getElementById('total-display');
+const price = {{ product.price }};
+
+if (quantityInput) {
+quantityInput.addEventListener('input', function() {
+    let qty = parseInt(this.value) || 0;
+    // Validate: no negative, no decimals, max = product.quantity
+    if (qty < 1) qty = 1;
+    if (qty > {{ product.quantity }}) qty = {{ product.quantity }};
+    this.value = qty;
+    
+    qtyDisplay.textContent = qty;
+    totalDisplay.textContent = '🪙 ' + (qty * price);
+});
+}
+
+const shareButton = document.getElementById('share-location-btn');
+const locationStatus = document.getElementById('location-status');
+const latInput = document.getElementById('shipping-lat');
+const lngInput = document.getElementById('shipping-lng');
+const locationTextInput = document.getElementById('shipping-location-text');
+const orderSubmit = document.getElementById('order-submit-btn');
+
+function setLocationReady(ready, message) {
+    if (locationStatus) {
+        locationStatus.textContent = message || (ready ? 'Location shared' : 'Location not shared');
+        locationStatus.style.color = ready ? 'var(--px-green)' : 'var(--px-text-muted)';
+    }
+    if (orderSubmit && shareButton) {
+        orderSubmit.disabled = !ready;
+        if (orderSubmit.disabled) {
+            orderSubmit.style.opacity = '0.6';
+            orderSubmit.style.cursor = 'not-allowed';
+        } else {
+            orderSubmit.style.opacity = '';
+            orderSubmit.style.cursor = '';
+        }
+    }
+}
+
+if (shareButton && latInput && lngInput) {
+    setLocationReady(false);
+    shareButton.addEventListener('click', function() {
+        if (!navigator.geolocation) {
+            setLocationReady(false, 'Geolocation not supported');
+            return;
+        }
+        shareButton.disabled = true;
+        shareButton.textContent = 'Sharing...';
+        navigator.geolocation.getCurrentPosition(function(pos) {
+            latInput.value = pos.coords.latitude;
+            lngInput.value = pos.coords.longitude;
+            if (locationTextInput) {
+                locationTextInput.value = `${pos.coords.latitude},${pos.coords.longitude}`;
+            }
+            shareButton.textContent = 'Location Shared';
+            setLocationReady(true, 'Location shared');
+        }, function() {
+            shareButton.disabled = false;
+            shareButton.textContent = 'Share Location';
+            setLocationReady(false, 'Location permission denied');
+        });
+    });
+}
+
+</script>
+
+<style>
+.merch-hero-image {
+    background: var(--px-bg-dark);
+    border: 4px solid var(--px-border);
+    height: 420px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.merch-hero-image--placeholder {
+    background: linear-gradient(135deg, var(--px-bg-dark), var(--px-bg-panel));
+}
+
+.merch-hero-image-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+}
+
+@media (max-width: 768px) {
+    .merch-hero-image {
+        height: 280px;
+        padding: 12px;
+    }
+}
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 24px;
+    font-family: 'Press Start 2P', cursive;
+    text-transform: uppercase;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-radius: 4px;
+}
+.btn-primary {
+    background: var(--px-gold);
+    color: #000;
+}
+.btn-primary:hover {
+    background: var(--px-gold-light);
+    transform: translateY(-2px);
+}
+</style>
+{% endblock %}

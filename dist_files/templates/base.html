@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>{% block title %}RetroQuest Platform{% endblock %}</title>
+    <meta name="description" content="RetroQuest - Complete missions, earn TNNO, play games">
+    <meta name="theme-color" content="#E6EAF7">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+
+    <!-- Turbo Drive for SPA-like fast page transitions -->
+    <script src="https://cdn.jsdelivr.net/npm/@hotwired/turbo@7.3.0/dist/turbo.es2017-umd.min.js"></script>
+    <script>
+        // Configure Turbo after it loads
+        if (typeof Turbo !== 'undefined') {
+            Turbo.setProgressBarDelay(0);
+            Turbo.session.drive = true;
+        }
+    </script>
+    
+    <!-- Performance: DNS prefetch for external resources -->
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com">
+    <link rel="dns-prefetch" href="https://fonts.gstatic.com">
+
+    <!-- Preconnect to external domains for faster connection -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- Fonts - optimized loading with swap -->
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Press+Start+2P&family=VT323&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Press+Start+2P&family=VT323&display=swap">
+
+    <!-- Pixel UI CSS -->
+    <link rel="preload" as="style" href="{{ asset_url('css/pixel-ui.css') }}">
+    <link rel="stylesheet" href="{{ asset_url('css/pixel-ui.css') }}">
+
+    <!-- Critical CSS - prevents flash of unstyled content -->
+    <style>
+        :root {
+            --transition-speed: 0.2s;
+        }
+        body { 
+            visibility: visible; 
+            opacity: 1;
+        }
+        .px-nav { visibility: visible; }
+        
+        /* Turbo.js page transition styles */
+        .turbo-progress-bar {
+            background: linear-gradient(90deg, #F1D64F, #C87B4C, #2D1A2A);
+            height: 3px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 0%;
+            z-index: 9999;
+            transition: width 0.15s ease-out;
+            will-change: width;
+        }
+        
+        /* Smooth page transitions with fade effect */
+        body {
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        
+        /* Turbo frame transitions - instant and smooth */
+        turbo-frame {
+            display: block;
+        }
+        
+        /* Loading state for faster perceived performance */
+        body.turbo-loading #main-content {
+            opacity: 0.6;
+            transition: opacity 0.15s ease-out;
+        }
+        
+        body:not(.turbo-loading) #main-content {
+            opacity: 1;
+            transition: opacity 0.2s ease-in;
+        }
+
+        /* Pro-feel page transitions (fast, subtle) */
+        #main-content {
+            will-change: opacity, transform;
+        }
+
+        body.turbo-loading #main-content {
+            opacity: 0.85;
+            transform: translateY(1px);
+        }
+
+        body.turbo-loaded #main-content {
+            animation: pageEnter 0.12s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+
+        @keyframes pageEnter {
+            0% { opacity: 0.9; transform: translateY(2px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            body.turbo-loading #main-content,
+            body.turbo-loaded #main-content {
+                animation: none !important;
+                transform: none !important;
+            }
+        }
+        
+        /* Immediate feedback on link interactions */
+        a {
+            transition: transform 0.1s ease, opacity 0.1s ease;
+        }
+        
+        a:active {
+            transform: scale(0.97);
+        }
+        
+        /* Button immediate feedback */
+        button, .px-btn {
+            transition: transform 0.08s ease, box-shadow 0.08s ease;
+        }
+        
+        button:active, .px-btn:active {
+            transform: scale(0.96);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+        }
+        
+        /* 3D TNNO Animation CSS */
+        .coin-3d-wrapper {
+            display: inline-block;
+            perspective: 1000px;
+            width: 30px;
+            height: 30px;
+            vertical-align: middle;
+        }
+
+        .coin-3d {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+            animation: coinSpin 3s linear infinite;
+        }
+
+        .coin-3d-front, .coin-3d-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 8px;
+            font-weight: 700;
+            letter-spacing: 0.4px;
+            color: #2f2338;
+            backface-visibility: hidden;
+            box-shadow: 0 0 12px rgba(212, 175, 55, 0.6);
+        }
+
+        .coin-3d-front {
+            background: linear-gradient(135deg, #f6e59b 0%, #d4af37 45%, #b8860b 100%);
+            border: 2px solid #b8860b;
+        }
+
+        .coin-3d-back {
+            background: linear-gradient(135deg, #b8860b 0%, #d4af37 55%, #f6e59b 100%);
+            border: 2px solid #b8860b;
+            transform: rotateY(180deg);
+        }
+
+        @keyframes coinSpin {
+            0% { transform: rotateY(0deg); }
+            100% { transform: rotateY(360deg); }
+        }
+
+        /* Mobile responsive */
+        @media (max-width: 768px) {
+            .coin-3d-wrapper {
+                width: 24px;
+                height: 24px;
+            }
+            .coin-3d-front, .coin-3d-back {
+                font-size: 7px;
+            }
+        }
+        
+        /* Alert Messages - Make them very visible */
+        .px-alert {
+            padding: 16px 20px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            border-left: 5px solid;
+            font-weight: 500;
+            z-index: 1000;
+            position: relative;
+        }
+        
+        .px-alert-error {
+            background-color: #f5c9c9;
+            color: #8a0f0f;
+            border-left-color: #cc0000;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
+        }
+        
+        .px-alert-success {
+            background-color: #d7f0d9;
+            color: #1f5a22;
+            border-left-color: #2f7d32;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
+        }
+        
+        .px-alert-info {
+            background-color: #d7e3ff;
+            color: #002aa3;
+            border-left-color: #0000ee;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
+        }
+    </style>
+
+    {% block extra_css %}{% endblock %}
+
+    <!-- Prefetch next likely pages for faster transitions -->
+    <link rel="prefetch" href="{{ url_for('missions.index') }}">
+    <link rel="prefetch" href="{{ url_for('feed.index') }}">
+    <link rel="prefetch" href="{{ url_for('game.index') }}">
+    <link rel="prefetch" href="{{ url_for('profile.leaderboard') }}">
+    <link rel="prefetch" href="{{ url_for('profile.index') }}">
+    
+    <!-- Turbo.js for SPA-like transitions -->
+    <script>
+        // Check if we're in browser context
+        if (typeof window !== 'undefined') {
+            // Preload images on hover
+            document.addEventListener('mouseover', function(e) {
+                if (e.target.tagName === 'A') {
+                    const href = e.target.getAttribute('href');
+                    if (href && href.startsWith('/') && !href.startsWith('//')) {
+                        const link = document.createElement('link');
+                        link.rel = 'prefetch';
+                        link.href = href;
+                        document.head.appendChild(link);
+                    }
+                }
+            });
+            
+            // Cache visited pages
+            document.addEventListener('click', function(e) {
+                const link = e.target.closest('a');
+                if (!link) return;
+                if (link.classList.contains('no-tap-fade') || link.closest('.chan-container')) {
+                    return;
+                }
+                // Add visual feedback immediately
+                link.style.opacity = '0.7';
+                setTimeout(function() {
+                    link.style.opacity = '1';
+                }, 200);
+            });
+        }
+    </script>
+
+</head>
+<body>
+    <!-- Turbo Progress Bar -->
+    <div class="turbo-progress-bar" id="progress-bar"></div>
+
+    <!-- Navigation -->
+    {% if current_user.is_authenticated %}
+    <nav class="px-nav">
+        <div class="px-nav-container">
+            <a href="{{ url_for('missions.index') }}" class="px-nav-brand" data-turbo-preload="true"> 
+                <div class="coin-3d-wrapper">
+                    <div class="coin-3d">
+                        <div class="coin-3d-front"></div>
+                        <div class="coin-3d-back"></div>
+                    </div>
+                </div>
+                TNNO
+            </a>
+
+            <div class="px-nav-menu" id="mobile-nav-menu">
+                <a href="{{ url_for('missions.index') }}" class="px-nav-link {% if request.endpoint == 'missions.index' %}active{% endif %}" data-turbo-preload="true">
+                    <span class="px-nav-icon">&#127919;</span>
+                    <span class="px-nav-text">Missions</span>
+                </a>
+                <a href="{{ url_for('feed.index') }}" class="px-nav-link {% if request.endpoint == 'feed.index' %}active{% endif %}" data-turbo-preload="true">
+                    <span class="px-nav-icon">&#128240;</span>
+                    <span class="px-nav-text">Feed</span>
+                </a>
+                <a href="{{ url_for('work.finance') }}" class="px-nav-link {% if request.endpoint == 'work.finance' %}active{% endif %}" data-turbo-preload="true">
+                    <span class="px-nav-icon">&#128176;</span>
+                    <span class="px-nav-text">Finance</span>
+                </a>
+                <a href="{{ url_for('work.index') }}" class="px-nav-link {% if request.endpoint == 'work.index' %}active{% endif %}" data-turbo-preload="true">
+                    <span class="px-nav-icon">&#128736;</span>
+                    <span class="px-nav-text">Work</span>
+                </a>
+                <a href="{{ url_for('game.index') }}" class="px-nav-link {% if request.endpoint == 'game.index' %}active{% endif %}" data-turbo-preload="true">
+                    <span class="px-nav-icon">&#127918;</span>
+                    <span class="px-nav-text">Games</span>
+                </a>
+                <a href="{{ url_for('merch.index') }}" class="px-nav-link {% if request.endpoint and request.endpoint.startswith('merch.') %}active{% endif %}" data-turbo-preload="true">
+                    <span class="px-nav-icon">&#128717;</span>
+                    <span class="px-nav-text">Store</span>
+                </a>
+                <a href="{{ url_for('profile.leaderboard') }}" class="px-nav-link {% if request.endpoint == 'profile.leaderboard' %}active{% endif %}" data-turbo-preload="true">
+                    <span class="px-nav-icon">&#127942;</span>
+                    <span class="px-nav-text">Leaderboard</span>
+                </a>
+                <a href="{{ url_for('profile.index') }}" class="px-nav-link {% if request.endpoint and request.endpoint.startswith('profile.') and request.endpoint != 'profile.leaderboard' %}active{% endif %}" data-turbo-preload="true">
+                    <span class="px-nav-icon">&#128100;</span>
+                    <span class="px-nav-text">Profile</span>
+                </a>
+                {% if current_user.is_admin() %}
+                <a href="{{ url_for('admin.index') }}" class="px-nav-link {% if request.endpoint == 'admin.index' %}active{% endif %}" data-turbo-preload="true">
+                    Admin
+                </a>
+                {% endif %}
+            </div>
+
+            <div class="px-nav-user">
+                <div class="px-nav-coins">
+                    <div class="coin-3d-wrapper">
+                        <div class="coin-3d">
+                            <div class="coin-3d-front"></div>
+                            <div class="coin-3d-back"></div>
+                        </div>
+                    </div>
+                    {{ current_user.coins|default(0)|format_number }}
+                </div>
+
+                <a href="{{ url_for('profile.index') }}" class="px-avatar px-avatar-sm px-notif-wrap" data-turbo-preload="true">
+                    {{ current_user.username[0]|upper }}
+                    {% if global_notif_count %}
+                    <span class="px-notif-dot" aria-label="{{ global_notif_count }} unread notifications"></span>
+                    {% endif %}
+                </a>
+                <form method="POST" action="{{ url_for('auth.logout') }}" style="display: inline; margin: 0;">
+                    <button type="submit" class="px-btn px-btn-sm px-btn-danger">
+                        Logout
+                    </button>
+                </form>
+            </div>
+        </div>
+    </nav>
+    {% endif %}
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="px-container" style="padding-top: 20px;">
+            {% for category, message in messages %}
+            <div class="px-alert px-alert-{{ category }}">
+                <span>{{ message }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    {% endwith %}
+
+    <!-- Main Content -->
+    <main class="px-container" id="main-content">
+        {% block content %}{% endblock %}
+    </main>
+
+
+{% if current_user.is_authenticated %}
+    <nav class="px-mobile-tabbar">
+        <a href="{{ url_for('missions.index') }}" class="px-mobile-tab {% if request.endpoint and request.endpoint.startswith('missions.') %}active{% endif %}" data-turbo-preload="true">
+            <span class="px-mobile-tab-icon">&#127919;</span>
+            <span class="px-mobile-tab-label">Missions</span>
+        </a>
+        <a href="{{ url_for('feed.index') }}" class="px-mobile-tab {% if request.endpoint and request.endpoint.startswith('feed.') %}active{% endif %}" data-turbo-preload="true">
+            <span class="px-mobile-tab-icon">&#128240;</span>
+            <span class="px-mobile-tab-label">Feed</span>
+        </a>
+        <a href="{{ url_for('work.index') }}" class="px-mobile-tab {% if request.endpoint and request.endpoint.startswith('work.') %}active{% endif %}" data-turbo-preload="true">
+            <span class="px-mobile-tab-icon">&#128736;</span>
+            <span class="px-mobile-tab-label">Work</span>
+        </a>
+        <a href="{{ url_for('game.index') }}" class="px-mobile-tab {% if request.endpoint and request.endpoint.startswith('game.') %}active{% endif %}" data-turbo-preload="true">
+            <span class="px-mobile-tab-icon">&#127918;</span>
+            <span class="px-mobile-tab-label">Games</span>
+        </a>
+        <a href="{{ url_for('merch.index') }}" class="px-mobile-tab {% if request.endpoint and request.endpoint.startswith('merch.') %}active{% endif %}" data-turbo-preload="true">
+            <span class="px-mobile-tab-icon">&#128717;</span>
+            <span class="px-mobile-tab-label">Store</span>
+        </a>
+        <a href="{{ url_for('profile.leaderboard') }}" class="px-mobile-tab {% if request.endpoint == 'profile.leaderboard' %}active{% endif %}" data-turbo-preload="true">
+            <span class="px-mobile-tab-icon">&#127942;</span>
+            <span class="px-mobile-tab-label">Leaderboard</span>
+        </a>
+    </nav>
+    {% endif %}
+
+    <!-- Footer -->
+    <footer style="background: var(--px-bg-primary); border-top: 4px solid var(--px-border); padding: 30px 0; margin-top: 50px;">
+        <div class="px-container px-text-center">
+            <p class="px-text-muted" style="font-family: 'Press Start 2P', cursive; font-size: 0.5rem;">
+                &copy; 2026 RetroQuest Platform. All rights reserved.
+            </p>
+        </div>
+    </footer>
+
+    <!-- Turbo Drive JavaScript -->
+    <script>
+        let instantFeedbackInitialized = false;
+        let mobileNavInitialized = false;
+
+        // Initialize on both DOMContentLoaded and turbo:load for reliability
+        function initPage() {
+            initLazyLoading();
+            initInstantFeedback();
+            initMobileNavToggle();
+            ensureCsrfTokens();
+            initWordAndFileLimits();
+            document.body.classList.add('turbo-loaded');
+            setTimeout(function() {
+                document.body.classList.remove('turbo-loaded');
+            }, 260);
+        }
+
+        // Turbo events
+        document.addEventListener('turbo:load', initPage);
+        document.addEventListener('turbo:render', initPage);
+        
+        // Fallback for when Turbo fails or first load
+        document.addEventListener('DOMContentLoaded', function() {
+            initPage();
+        });
+
+        function getCsrfToken() {
+            const meta = document.querySelector('meta[name="csrf-token"]');
+            return meta ? meta.getAttribute('content') : '';
+        }
+
+        function ensureCsrfTokens() {
+            const token = getCsrfToken();
+            if (!token) return;
+            document.querySelectorAll('form').forEach(form => {
+                const method = (form.getAttribute('method') || 'get').toLowerCase();
+                if (method === 'get') return;
+                if (form.querySelector('input[name="csrf_token"]')) return;
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'csrf_token';
+                input.value = token;
+                form.appendChild(input);
+            });
+        }
+
+        window.csrfFetch = function(input, init = {}) {
+            const opts = Object.assign({ credentials: 'same-origin' }, init);
+            const method = (opts.method || 'GET').toUpperCase();
+            if (!['GET', 'HEAD', 'OPTIONS', 'TRACE'].includes(method)) {
+                const headers = new Headers(opts.headers || {});
+                if (!headers.has('X-CSRFToken')) {
+                    const token = getCsrfToken();
+                    if (token) headers.set('X-CSRFToken', token);
+                }
+                opts.headers = headers;
+            }
+            return fetch(input, opts);
+        };
+        
+        // Initialize lazy loading for images
+        function initLazyLoading() {
+            if ('IntersectionObserver' in window) {
+                const imageObserver = new IntersectionObserver((entries, observer) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            const img = entry.target;
+                            if (img.dataset.src) {
+                                img.src = img.dataset.src;
+                                img.removeAttribute('data-src');
+                                img.classList.add('lazy-loaded');
+                            }
+                            observer.unobserve(img);
+                        }
+                    });
+                }, { rootMargin: '50px' });
+                
+                document.querySelectorAll('img[data-src]').forEach(img => {
+                    imageObserver.observe(img);
+                });
+            } else {
+                // Fallback for older browsers
+                document.querySelectorAll('img[data-src]').forEach(img => {
+                    img.src = img.dataset.src;
+                    img.removeAttribute('data-src');
+                });
+            }
+        }
+        
+        // Instant visual feedback for links and buttons
+        function initInstantFeedback() {
+            if (instantFeedbackInitialized) return;
+            instantFeedbackInitialized = true;
+            const prefetched = new Set();
+            // Add loading class to body during navigation
+            document.addEventListener('turbo:before-fetch-request', function() {
+                document.body.classList.add('turbo-loading');
+            });
+            
+            document.addEventListener('turbo:load', function() {
+                document.body.classList.remove('turbo-loading');
+            });
+            
+            // Preload images on hover
+            document.addEventListener('mouseover', function(e) {
+                if (e.target.tagName === 'A') {
+                    const href = e.target.getAttribute('href');
+                    if (href && href.startsWith('/') && !href.startsWith('//')) {
+                        if (prefetched.has(href)) return;
+                        if (document.head.querySelector(`link[rel="prefetch"][href="${href}"]`)) {
+                            prefetched.add(href);
+                            return;
+                        }
+                        const link = document.createElement('link');
+                        link.rel = 'prefetch';
+                        link.href = href;
+                        document.head.appendChild(link);
+                        prefetched.add(href);
+                    }
+                }
+            });
+        }
+
+        function initMobileNavToggle() {
+            if (mobileNavInitialized) return;
+            const toggle = document.querySelector('.px-nav-toggle');
+            const menu = document.getElementById('mobile-nav-menu');
+            if (!toggle || !menu) return;
+            mobileNavInitialized = true;
+            toggle.addEventListener('click', function() {
+                const isOpen = menu.classList.toggle('open');
+                toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+            });
+        }
+
+        function countWords(text) {
+            if (!text) return 0;
+            return text.trim().split(/\s+/).filter(Boolean).length;
+        }
+
+        function initWordAndFileLimits() {
+            // Enforce 100-word limit on all textareas and text inputs
+            document.addEventListener('submit', function(e) {
+                const form = e.target;
+                if (!form || form.tagName !== 'FORM') return;
+                const fields = form.querySelectorAll('textarea, input[type="text"]');
+                for (const field of fields) {
+                    const max = parseInt(field.dataset.maxWords || '100', 10);
+                    if (!max) continue;
+                    const words = countWords(field.value);
+                    if (words > max) {
+                        e.preventDefault();
+                        alert(`Maximum ${max} words allowed.`);
+                        field.focus();
+                        return;
+                    }
+                }
+            }, true);
+
+            // Enforce 10MB file size limit on all file inputs
+            document.addEventListener('change', function(e) {
+                const input = e.target;
+                if (!input || input.type !== 'file') return;
+                const maxBytes = 10 * 1024 * 1024;
+                for (const file of input.files || []) {
+                    if (file.size > maxBytes) {
+                        alert('File is too large. Maximum 10MB allowed.');
+                        input.value = '';
+                        return;
+                    }
+                }
+            }, true);
+        }
+        
+        // Progress bar for page transitions
+        (function() {
+            const progressBar = document.getElementById('progress-bar');
+            let progress = 0;
+            let interval;
+            
+            function startProgress() {
+                progress = 0;
+                progressBar.style.width = '0%';
+                progressBar.style.opacity = '1';
+                interval = setInterval(function() {
+                    progress += 15;
+                    if (progress > 85) progress = 85;
+                    progressBar.style.width = progress + '%';
+                }, 80);
+            }
+            
+            function stopProgress() {
+                clearInterval(interval);
+                progressBar.style.width = '100%';
+                setTimeout(function() {
+                    progressBar.style.opacity = '0';
+                    setTimeout(function() {
+                        progressBar.style.width = '0%';
+                    }, 200);
+                }, 150);
+            }
+            
+            // Turbo Drive event listeners for progress bar
+            document.addEventListener('turbo:before-fetch-request', startProgress);
+            document.addEventListener('turbo:load', stopProgress);
+            document.addEventListener('turbo:frame-load', stopProgress);
+            
+            // Fallback for non-Turbo links
+            document.addEventListener('click', function(e) {
+                const link = e.target.closest('a[data-turbo-preload="true"]');
+                if (link && !link.hasAttribute('download') && link.target !== '_blank') {
+                    const href = link.getAttribute('href');
+                    if (href && href.startsWith('/')) {
+                        startProgress();
+                    }
+                }
+            });
+            
+            window.addEventListener('load', stopProgress);
+        })();
+    </script>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

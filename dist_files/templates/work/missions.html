@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Missions - RetroQuest Admin{% endblock %}
+
+{% block content %}
+<div class="px-flex px-justify-between px-items-center px-mb-lg">
+    <h1>Manage Missions</h1>
+    <div class="px-flex px-gap-md">
+        <a href="{{ url_for('missions.create') }}" class="px-btn px-btn-primary">
+            Create Mission
+        </a>
+        <a href="{{ url_for('admin.index') }}" class="px-btn px-btn-secondary">
+            Back to Dashboard
+        </a>
+    </div>
+</div>
+
+<!-- Missions List -->
+{% if missions %}
+<div class="px-panel">
+    <table class="px-table">
+        <thead>
+            <tr>
+                <th>Title</th>
+                <th>Status</th>
+                <th>Reward</th>
+                <th>Submissions</th>
+                <th>Created</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for mission in missions %}
+            <tr>
+                <td>
+                    <strong>{{ mission.title }}</strong>
+                </td>
+                <td>
+                    <span class="px-badge px-badge-{{ 'active' if mission.status == 'active' else 'inactive' }}">
+                        {{ mission.status|title }}
+                    </span>
+                </td>
+                <td>
+                    <span class="px-coins">{{ mission.reward|format_number }}</span>
+                </td>
+                <td>{{ mission.submissions.count() }}</td>
+                <td>{{ mission.created_at.strftime('%Y-%m-%d') }}</td>
+                <td>
+                    <div class="px-flex px-gap-sm">
+                        <a href="{{ url_for('missions.view', mission_id=mission.id) }}" class="px-btn px-btn-sm px-btn-secondary">
+                            View
+                        </a>
+                        <a href="{{ url_for('missions.edit', mission_id=mission.id) }}" class="px-btn px-btn-sm px-btn-secondary">
+                            Edit
+                        </a>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% else %}
+<div class="px-panel px-text-center">
+    <p class="px-text-muted">No missions found.</p>
+    <a href="{{ url_for('missions.create') }}" class="px-btn px-btn-primary px-mt-md">
+        Create First Mission
+    </a>
+</div>
+{% endif %}
+
+<style>
+.px-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.px-table th,
+.px-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+.px-table th {
+    background: #f5f5f5;
+    font-weight: bold;
+}
+
+.px-table tr:hover {
+    background: #f9f9f9;
+}
+
+.px-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 3px;
+    font-size: 0.85em;
+    font-weight: bold;
+}
+
+.px-badge-active {
+    background: #28a745;
+    color: white;
+}
+
+.px-badge-inactive {
+    background: #999;
+    color: white;
+}
+
+.px-coins {
+    font-weight: bold;
+    color: #FFD700;
+}
+
+.px-text-muted {
+    color: #999;
+}
+
+.px-flex {
+    display: flex;
+}
+
+.px-gap-sm {
+    gap: 8px;
+}
+</style>
+{% endblock %}
