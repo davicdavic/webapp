@@ -18,12 +18,13 @@
 </div>
 {% endif %}
 
-<div class="px-panel" style="max-width: 600px; margin: 0 auto;">
-    <div class="px-info-box px-mb-lg">
+<div class="px-panel old-withdraw-panel" style="max-width: 700px; margin: 0 auto;">
+    <div class="px-info-box old-withdraw-balance px-mb-lg">
         <strong>Available TNNO:</strong> <span class="px-coins">{{ current_user.coins|format_number }}</span>
     </div>
 
     <form method="POST" class="px-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="px-form-group">
             <label for="amount" class="px-form-label">Withdrawal Amount (TNNO) *</label>
             <input 
@@ -40,14 +41,14 @@
         </div>
 
         <div class="px-form-group">
-            <label for="wallet" class="px-form-label">Wallet Address *</label>
+            <label for="wallet" class="px-form-label">Address or Phone Number *</label>
             <input 
                 type="text" 
                 id="wallet" 
                 name="wallet" 
                 class="px-input" 
                 required 
-                placeholder="Enter your wallet address"
+                placeholder="Enter wallet address or payout phone number"
             />
         </div>
 
@@ -64,7 +65,7 @@
         </div>
 
         <div class="px-alert px-alert-info px-mb-lg">
-            <p><strong>Note:</strong> Withdrawal requests will be processed within 24-48 hours. Please ensure your wallet address is correct.</p>
+            <p><strong>Note:</strong> Withdrawal requests will be processed within 24-48 hours. Please ensure your destination and name are correct.</p>
         </div>
 
         <div class="px-flex px-gap-md px-mt-lg">
@@ -75,6 +76,12 @@
 </div>
 
 <style>
+.old-withdraw-panel {
+    background: linear-gradient(180deg, #fff6dc, #f2dfae);
+    border-color: #6f4528;
+    box-shadow: 5px 5px 0 rgba(111, 69, 40, 0.22);
+}
+
 .px-form-group {
     margin-bottom: 1.5rem;
 }
@@ -85,58 +92,23 @@
     font-weight: bold;
 }
 
-.px-input {
-    width: 100%;
-    padding: 8px 12px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    font-family: inherit;
-    font-size: 1em;
-    box-sizing: border-box;
-}
-
-.px-input:focus {
-    outline: none;
-    border-color: #4CAF50;
-    box-shadow: 0 0 5px rgba(76, 175, 80, 0.3);
-}
-
 .px-text-muted {
     display: block;
-    color: #999;
+    color: #6e5235;
     font-size: 0.9em;
     margin-top: 0.25rem;
 }
 
-.px-info-box {
-    background: #d4edda;
-    border: 1px solid #c3e6cb;
-    color: #155724;
+.old-withdraw-balance {
+    background: linear-gradient(180deg, #fff7db, #efddb0);
+    border: 2px solid #c7a45d;
+    color: #5a411a;
     padding: 12px 16px;
-    border-radius: 4px;
 }
 
 .px-coins {
     font-weight: bold;
-    color: #FFD700;
-}
-
-.px-alert {
-    padding: 12px 16px;
-    border-radius: 4px;
-    margin-bottom: 1rem;
-}
-
-.px-alert-error {
-    background: #f8d7da;
-    color: #721c24;
-    border: 1px solid #f5c6cb;
-}
-
-.px-alert-info {
-    background: #d1ecf1;
-    color: #0c5460;
-    border: 1px solid #bee5eb;
+    color: #b37a16;
 }
 </style>
 {% endblock %}

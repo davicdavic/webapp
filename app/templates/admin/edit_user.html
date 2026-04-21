@@ -10,14 +10,15 @@
     </a>
 </div>
 
-<div class="px-grid px-grid-2">
+<div class="px-grid px-grid-2 admin-edit-grid">
     <!-- Edit Form -->
-    <div class="px-panel">
+    <div class="px-panel admin-edit-panel">
         <div class="px-panel-header">
             <h2 class="px-panel-title">User Settings</h2>
         </div>
         
         <form method="POST" class="px-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="px-form-group">
                 <label for="coins" class="px-form-label">TNNO</label>
                 <input 
@@ -53,7 +54,7 @@
     </div>
 
     <!-- User Information -->
-    <div class="px-panel">
+    <div class="px-panel admin-edit-panel">
         <div class="px-panel-header">
             <h2 class="px-panel-title">User Information</h2>
         </div>
@@ -111,6 +112,7 @@
             <h3 style="color: var(--px-red); margin: 0 0 8px 0;">Danger Zone</h3>
             <p class="px-text-muted" style="margin: 0 0 12px 0; font-size: 0.9em;">Delete this user account and all associated data</p>
             <form method="POST" action="{{ url_for('admin.delete_user', user_id=user.id) }}" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete user &quot;{{ user.username }}&quot;? This action cannot be undone.');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="px-btn px-btn-danger px-btn-block">
                     Delete User Account
                 </button>
@@ -120,6 +122,20 @@
 </div>
 
 <style>
+.admin-edit-grid {
+    gap: 18px;
+}
+
+.admin-edit-panel {
+    background: linear-gradient(180deg, #fff6dc, #f2dfae);
+    border-color: #6f4528;
+    box-shadow: 5px 5px 0 rgba(111, 69, 40, 0.22);
+}
+
+.admin-edit-panel .px-panel-header {
+    border-bottom-color: rgba(111, 69, 40, 0.25);
+}
+
 .px-form-group {
     margin-bottom: 1.5rem;
 }
@@ -130,22 +146,6 @@
     font-weight: bold;
 }
 
-.px-input {
-    width: 100%;
-    padding: 8px 12px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    font-family: inherit;
-    font-size: 1em;
-    box-sizing: border-box;
-}
-
-.px-input:focus {
-    outline: none;
-    border-color: #4CAF50;
-    box-shadow: 0 0 5px rgba(76, 175, 80, 0.3);
-}
-
 .px-info-group {
     margin-bottom: 1.5rem;
 }
@@ -154,27 +154,12 @@
     display: block;
     font-weight: bold;
     margin-bottom: 0.5rem;
-    color: #333;
+    color: #4d3217;
 }
 
 .px-info-group p {
     margin: 0;
-    color: #666;
-}
-
-.px-panel-header {
-    padding-bottom: 12px;
-    border-bottom: 1px solid #ddd;
-    margin-bottom: 12px;
-}
-
-.px-panel-title {
-    margin: 0;
-    font-size: 1.1em;
-}
-
-.px-text-muted {
-    color: #999;
+    color: #6e5235;
 }
 </style>
 

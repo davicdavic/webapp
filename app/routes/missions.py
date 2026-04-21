@@ -84,12 +84,14 @@ def api_missions():
     )
     
     # Get user submissions
-    submission_ids = UserMission.query.filter_by(user_id=current_user.id)\
-        .with_entities(UserMission.mission_id)\
+    submissions = UserMission.query.filter_by(user_id=current_user.id)\
         .filter(UserMission.is_archived.is_(False))\
-        .distinct()\
+        .order_by(UserMission.submission_time.desc())\
         .all()
-    submitted_ids = {s[0] for s in submission_ids}
+    submission_by_mission = {}
+    for sub in submissions:
+        if sub.mission_id not in submission_by_mission:
+            submission_by_mission[sub.mission_id] = sub
     
     return jsonify({
         'missions': [{
@@ -100,8 +102,9 @@ def api_missions():
             'limit_count': m.limit_count,
             'time_limit': m.time_limit,
             'mission_type': m.mission_type,
+            'image_path': m.image_path,
             'created_at': m.created_at.isoformat() if m.created_at else None,
-            'is_submitted': m.id in submitted_ids
+            'submission_status': submission_by_mission.get(m.id).status if submission_by_mission.get(m.id) else None
         } for m in missions_page.items],
         'page': page,
         'limit': limit,

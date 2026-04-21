@@ -22,8 +22,9 @@
 
 <!-- Users List -->
 {% if users.items %}
-<div class="px-panel">
-    <table class="px-table">
+<div class="px-panel admin-users-panel">
+    <div class="admin-users-table-wrap">
+    <table class="px-table admin-users-table">
         <thead>
             <tr>
                 <th>Username</th>
@@ -81,14 +82,31 @@
                 </td>
                 <td>{{ user.created_at.strftime('%Y-%m-%d') }}</td>
                 <td>
-                    <a href="{{ url_for('admin.edit_user', user_id=user.id) }}" class="px-btn px-btn-sm px-btn-secondary">
-                        Edit
-                    </a>
+                    <div class="admin-user-actions">
+                        <a href="{{ url_for('admin.edit_user', user_id=user.id) }}" class="px-btn px-btn-sm px-btn-secondary">
+                            Edit
+                        </a>
+                        <form method="POST" action="{{ url_for('admin.toggle_user_seller', user_id=user.id, q=q) }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="make_seller" value="{{ '0' if user.is_seller else '1' }}">
+                            <input type="hidden" name="commission_rate" value="{% if user.seller_commission_rate %}{{ (user.seller_commission_rate * 100)|round(2) }}{% else %}3{% endif %}">
+                            <button type="submit" class="px-btn px-btn-sm {% if user.is_seller %}px-btn-secondary{% else %}px-btn-primary{% endif %}">
+                                {% if user.is_seller %}Remove Seller{% else %}Make Seller{% endif %}
+                            </button>
+                        </form>
+                        {% if user.id != current_user.id %}
+                        <form method="POST" action="{{ url_for('admin.delete_user', user_id=user.id) }}" onsubmit="return confirm('Delete user {{ user.username }} permanently?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="px-btn px-btn-sm px-btn-danger">Delete</button>
+                        </form>
+                        {% endif %}
+                    </div>
                 </td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
+    </div>
 </div>
 
 <!-- Pagination -->
@@ -119,52 +137,51 @@
 {% endif %}
 
 <style>
-.px-table {
-    width: 100%;
-    border-collapse: collapse;
+.admin-users-panel {
+    background: linear-gradient(180deg, #fff6dc, #f2dfae);
+    border-color: #6f4528;
 }
 
-.px-table th,
-.px-table td {
-    padding: 12px;
-    text-align: left;
-    border-bottom: 1px solid #ddd;
+.admin-users-table-wrap {
+    overflow-x: auto;
 }
 
-.px-table th {
-    background: #f5f5f5;
-    font-weight: bold;
+.admin-users-table {
+    min-width: 1080px;
 }
 
-.px-table tr:hover {
-    background: #f9f9f9;
+.admin-users-table th,
+.admin-users-table td {
+    border-bottom-color: rgba(111, 69, 40, 0.25);
+}
+
+.admin-users-table tr:hover td {
+    background: rgba(255,255,255,0.35);
 }
 
 .px-coins {
     font-weight: bold;
-    color: #FFD700;
+    color: #b37a16;
 }
 
 .px-badge {
-    display: inline-block;
-    padding: 4px 8px;
-    border-radius: 3px;
-    font-size: 0.85em;
-    font-weight: bold;
+    border-radius: 0;
 }
 
 .px-badge-admin {
-    background: #dc3545;
+    background: #a94239;
     color: white;
 }
 
 .px-badge-user {
-    background: #28a745;
+    background: #628847;
     color: white;
 }
 
-.px-text-muted {
-    color: #999;
+.admin-user-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
 }
 
 .px-pagination {
@@ -176,6 +193,12 @@
 
 .px-pagination-info {
     color: #666;
+}
+
+.px-btn-danger {
+    background: linear-gradient(180deg, #d87060, #b24d3f);
+    border: 2px solid #7c3128;
+    color: #fff;
 }
 </style>
 {% endblock %}

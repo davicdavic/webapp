@@ -322,15 +322,24 @@ def create_withdraw():
     
     if request.method == 'POST':
         amount = request.form.get('amount', 0, type=int)
-        wallet = request.form.get('wallet', '').strip()
+        wallet = (
+            request.form.get('wallet', '').strip()
+            or request.form.get('wallet_address', '').strip()
+            or request.form.get('destination', '').strip()
+        )
         name = request.form.get('name', '').strip()
+        network = request.form.get('network', '').strip()
         
         if amount <= 0:
             flash('Invalid amount', 'error')
             return redirect(url_for('work.create_withdraw'))
         
         if not wallet or not name:
-            flash('Wallet address and name are required', 'error')
+            flash('Address or phone number and name are required', 'error')
+            return redirect(url_for('work.create_withdraw'))
+
+        if network and network not in {'ERC20', 'BEP20', 'TRC20', 'PHONE'}:
+            flash('Invalid payout method', 'error')
             return redirect(url_for('work.create_withdraw'))
         
         if current_user.coins < amount:
@@ -387,5 +396,4 @@ def finance():
         wallet_address=current_app.config.get('WALLET_ADDRESS'),
         request_fee=get_work_request_fee()
     )
-
 

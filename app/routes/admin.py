@@ -398,6 +398,32 @@ def edit_user(user_id):
     )
 
 
+@admin_bp.route('/users/<int:user_id>/seller', methods=['POST'])
+@login_required
+def toggle_user_seller(user_id):
+    """Quick-toggle seller access for a user."""
+    if not admin_required():
+        flash('Access denied', 'error')
+        return redirect(url_for('missions.index'))
+
+    user = User.query.get_or_404(user_id)
+    make_seller = request.form.get('make_seller') == '1'
+    commission_rate = request.form.get('commission_rate', 3.0, type=float)
+    commission_rate = max(0.0, min(commission_rate, 100.0))
+
+    user.is_seller = make_seller
+    user.seller_commission_rate = (commission_rate / 100.0) if make_seller else 0.0
+    if make_seller and user.seller_expires_at is None:
+        user.seller_reminder_sent_at = None
+    db.session.commit()
+
+    flash(
+        f'{user.username} is now {"a seller" if make_seller else "a regular user"}.',
+        'success'
+    )
+    return redirect(url_for('admin.users', q=request.args.get('q', '')))
+
+
 @admin_bp.route('/users/<int:user_id>/delete', methods=['POST'])
 @login_required
 def delete_user(user_id):

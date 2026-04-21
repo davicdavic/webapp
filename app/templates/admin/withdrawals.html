@@ -17,13 +17,14 @@
 
 <!-- Withdrawals List -->
 {% if withdraws.items %}
-<div class="px-panel">
-    <table class="px-table">
+<div class="px-panel admin-withdraw-panel">
+    <div class="admin-withdraw-table-wrap">
+    <table class="px-table admin-withdraw-table">
         <thead>
             <tr>
                 <th>User</th>
                 <th>Amount</th>
-                <th>Wallet</th>
+                <th>Address / Phone</th>
                 <th>Name</th>
                 <th>Status</th>
                 <th>Created</th>
@@ -67,6 +68,7 @@
             {% endfor %}
         </tbody>
     </table>
+    </div>
 </div>
 
 <!-- Pagination -->
@@ -97,66 +99,59 @@
 {% endif %}
 
 <style>
-.px-table {
-    width: 100%;
-    border-collapse: collapse;
+.admin-withdraw-panel {
+    background: linear-gradient(180deg, #fff6dc, #f2dfae);
+    border-color: #6f4528;
 }
 
-.px-table th,
-.px-table td {
-    padding: 10px;
-    text-align: left;
-    border-bottom: 1px solid #ddd;
-    font-size: 0.95em;
+.admin-withdraw-table-wrap {
+    overflow-x: auto;
 }
 
-.px-table th {
-    background: #f5f5f5;
-    font-weight: bold;
+.admin-withdraw-table {
+    min-width: 960px;
 }
 
-.px-table tr:hover {
-    background: #f9f9f9;
+.admin-withdraw-table th,
+.admin-withdraw-table td {
+    border-bottom-color: rgba(111, 69, 40, 0.25);
 }
 
 .px-badge {
-    display: inline-block;
-    padding: 4px 8px;
-    border-radius: 3px;
-    font-size: 0.85em;
-    font-weight: bold;
+    border-radius: 0;
 }
 
 .px-badge-pending {
-    background: #fff3cd;
-    color: #856404;
+    background: #f0d58a;
+    color: #5b4312;
 }
 
 .px-badge-approved {
-    background: #d4edda;
-    color: #155724;
+    background: #cfe6b8;
+    color: #30531d;
 }
 
 .px-badge-rejected {
-    background: #f8d7da;
-    color: #721c24;
+    background: #edc0b8;
+    color: #712f25;
 }
 
 .px-coins {
     font-weight: bold;
-    color: #FFD700;
+    color: #b37a16;
 }
 
 .px-code-inline {
-    background: #f0f0f0;
-    padding: 2px 6px;
-    border-radius: 3px;
+    background: #fff7df;
+    padding: 4px 8px;
+    border-radius: 0;
+    border: 2px solid #c9a25e;
     font-family: monospace;
     font-size: 0.85em;
 }
 
 .px-wallet-full {
-    color: #000;
+    color: #4e3418;
     white-space: normal;
     word-break: break-all;
     display: inline-block;
@@ -176,21 +171,23 @@
 }
 
 .px-btn-success {
-    background: #28a745;
+    background: linear-gradient(180deg, #8aae5b, #65823d);
+    border: 2px solid #466027;
     color: white;
 }
 
 .px-btn-success:hover {
-    background: #218838;
+    background: linear-gradient(180deg, #97ba68, #6d8b44);
 }
 
 .px-btn-danger {
-    background: #dc3545;
+    background: linear-gradient(180deg, #d87060, #b24d3f);
+    border: 2px solid #7c3128;
     color: white;
 }
 
 .px-btn-danger:hover {
-    background: #c82333;
+    background: linear-gradient(180deg, #df7e6e, #bc5848);
 }
 
 .px-pagination {

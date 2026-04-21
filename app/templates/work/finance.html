@@ -3,14 +3,20 @@
 {% block title %}Finance Center - RetroQuest{% endblock %}
 
 {% block content %}
-<h1 class="px-mb-lg">Finance Center</h1>
+<div class="finance-page">
+<div class="finance-header px-panel px-mb-lg">
+    <div>
+        <p class="finance-kicker">Town Bank</p>
+        <h1 class="px-mb-sm">Finance Center</h1>
+        <p class="px-text-muted">Manage deposits and withdrawals from one cozy pixel-art wallet screen.</p>
+    </div>
+</div>
 
-<!-- Toggle Buttons -->
-<div class="px-flex px-gap-md px-mb-lg">
-    <button id="deposit-toggle" class="px-btn px-btn-primary finance-toggle active" onclick="showDeposit()">
+<div class="finance-toggle-row px-mb-lg">
+    <button id="deposit-toggle" type="button" class="px-btn px-btn-primary finance-toggle active" onclick="showDeposit()">
         💰 Deposit
     </button>
-    <button id="withdraw-toggle" class="px-btn px-btn-secondary finance-toggle" onclick="showWithdraw()">
+    <button id="withdraw-toggle" type="button" class="px-btn px-btn-secondary finance-toggle" onclick="showWithdraw()">
         💸 Withdraw
     </button>
 </div>
@@ -18,12 +24,13 @@
 <!-- Deposit Section -->
 <div id="deposit-section" class="finance-section">
     <div class="px-grid finance-layout" style="grid-template-columns: 1.2fr 1.8fr; gap: 16px;">
-        <div class="px-panel">
+        <div class="px-panel finance-card">
             <div class="px-panel-header">
                 <h2 class="px-panel-title">Create Deposit</h2>
             </div>
 
             <form method="POST" action="/create-deposit" id="depositForm" data-turbo="false" target="_top">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="px-form-group">
                     <label class="px-label" for="amount">Amount (USDT)</label>
                     <input
@@ -62,7 +69,7 @@
                 });
             </script>
 
-            <div class="px-panel" style="background: var(--px-bg-dark); margin-top: 16px;">
+            <div class="px-panel finance-note-panel" style="margin-top: 16px;">
                 <h4 style="color: var(--px-orange);">Payment Rules</h4>
                 <ul class="px-text-sm px-text-muted" style="line-height: 1.6; padding-left: 18px;">
                     <li>Deposit is created through NowPayments and will open the payment provider page.</li>
@@ -72,7 +79,7 @@
             </div>
         </div>
 
-        <div class="px-panel">
+        <div class="px-panel finance-card">
             <div class="px-panel-header">
                 <h2 class="px-panel-title">Your Recent Deposits</h2>
             </div>
@@ -121,12 +128,13 @@
 <!-- Withdraw Section -->
 <div id="withdraw-section" class="finance-section" style="display: none;">
     <div class="px-grid finance-layout" style="grid-template-columns: 1.2fr 1.8fr; gap: 16px;">
-        <div class="px-panel">
+        <div class="px-panel finance-card finance-withdraw-card">
             <div class="px-panel-header">
                 <h2 class="px-panel-title">Create Withdrawal</h2>
             </div>
 
             <form method="POST" action="{{ url_for('work.create_withdraw') }}" id="withdrawForm">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="px-form-group">
                     <label class="px-label" for="amount">Amount (TNNO)</label>
                     <input
@@ -143,40 +151,52 @@
                 </div>
 
                 <div class="px-form-group">
-                    <label class="px-label" for="wallet_address">USDT Wallet Address</label>
+                    <label class="px-label" for="wallet_address">Address or Phone Number</label>
                     <input
                         type="text"
                         id="wallet_address"
-                        name="wallet_address"
+                        name="wallet"
                         class="px-input"
-                        placeholder="Enter your USDT wallet address"
+                        placeholder="Enter wallet address or payout phone number"
                         required
                     >
                 </div>
 
                 <div class="px-form-group">
-                    <label class="px-label" for="network">Network</label>
-                    <select id="withdraw-network" name="network" class="px-input" required>
-                        <option value="ERC20">USDT (ERC20)</option>
-                        <option value="BEP20">USDT (BEP20)</option>
+                    <label class="px-label" for="withdraw-name">Full Name</label>
+                    <input
+                        type="text"
+                        id="withdraw-name"
+                        name="name"
+                        class="px-input"
+                        placeholder="Enter your full name"
+                        required
+                    >
+                </div>
+
+                <div class="px-form-group">
+                    <label class="px-label" for="withdraw-network">Payout Method</label>
+                    <select id="withdraw-network" name="network" class="px-input">
+                        <option value="ERC20">Wallet Address</option>
+                        <option value="PHONE">Phone Number</option>
                     </select>
                 </div>
 
-                <button type="submit" class="px-btn px-btn-success px-btn-lg" style="width: 100%; margin-top: 16px;">Request Withdrawal</button>
+                <button type="submit" class="px-btn px-btn-success px-btn-lg finance-submit" style="width: 100%; margin-top: 16px;">Request Withdrawal</button>
             </form>
 
-            <div class="px-panel" style="background: var(--px-bg-dark); margin-top: 16px;">
+            <div class="px-panel finance-note-panel" style="margin-top: 16px;">
                 <h4 style="color: var(--px-orange);">Withdrawal Rules</h4>
                 <ul class="px-text-sm px-text-muted" style="line-height: 1.6; padding-left: 18px;">
                     <li>Minimum withdrawal: 1000 TNNO</li>
                     <li>Processing time: 1-3 business days</li>
-                    <li>Double-check your wallet address</li>
-                    <li>Wrong address may result in permanent loss</li>
+                    <li>Use your real name for approval review</li>
+                    <li>Double-check your address or phone number before submitting</li>
                 </ul>
             </div>
         </div>
 
-        <div class="px-panel">
+        <div class="px-panel finance-card">
             <div class="px-panel-header">
                 <h2 class="px-panel-title">Your Recent Withdrawals</h2>
             </div>
@@ -187,6 +207,8 @@
                     <tr>
                         <th>ID</th>
                         <th>Amount (TNNO)</th>
+                        <th>Name</th>
+                        <th>Destination</th>
                         <th>Status</th>
                         <th>Created</th>
                     </tr>
@@ -203,6 +225,8 @@
                     <tr>
                         <td>#{{ withdrawal.id }}</td>
                         <td>{{ withdrawal.amount|format_number }} TNNO</td>
+                        <td>{{ withdrawal.name }}</td>
+                        <td><code class="finance-inline-code">{{ withdrawal.wallet[:20] }}{% if withdrawal.wallet|length > 20 %}...{% endif %}</code></td>
                         <td><span class="px-status px-status-{{ badge }}">{{ withdrawal.status|title }}</span></td>
                         <td>{{ withdrawal.created_at.strftime('%Y-%m-%d %H:%M') if withdrawal.created_at else '' }}</td>
                     </tr>
@@ -215,21 +239,83 @@
         </div>
     </div>
 </div>
+</div>
 
 <style>
+.finance-page {
+    --finance-wood-dark: #6d4327;
+    --finance-paper: #f7ebc0;
+    --finance-sky: #d6ebff;
+}
+
+.finance-header {
+    background:
+        linear-gradient(180deg, rgba(255,255,255,0.3), rgba(255,255,255,0) 30%),
+        linear-gradient(180deg, var(--finance-sky), #f4dfa7 58%, #c98e52 58%, #c98e52 62%, #87a75b 62%, #87a75b 100%);
+    border-color: var(--finance-wood-dark);
+    box-shadow: 6px 6px 0 rgba(109, 67, 39, 0.28);
+}
+
+.finance-header::before,
+.finance-card::before,
+.finance-note-panel::before {
+    border-color: rgba(255,255,255,0.25);
+}
+
+.finance-kicker {
+    margin: 0 0 12px;
+    font-family: 'Press Start 2P', cursive;
+    font-size: 0.55rem;
+    color: var(--finance-wood-dark);
+    text-transform: uppercase;
+}
+
+.finance-toggle-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
 .finance-toggle {
     padding: 12px 24px;
-    font-size: 16px;
-    font-weight: bold;
+    min-width: 160px;
 }
 
 .finance-toggle.active {
-    background: var(--px-gold) !important;
-    color: #000 !important;
+    background: linear-gradient(180deg, #d67f60, #b85b40) !important;
+    border-color: #84412c !important;
+    color: #fff7ea !important;
 }
 
 .finance-section {
     animation: fadeIn 0.3s ease;
+}
+
+.finance-card {
+    border-color: var(--finance-wood-dark);
+    background: linear-gradient(180deg, #fbf2d4, var(--finance-paper));
+    box-shadow: 5px 5px 0 rgba(109, 67, 39, 0.2);
+}
+
+.finance-note-panel {
+    background: linear-gradient(180deg, #fff7db, #efddb0);
+    border-color: #c59b54;
+}
+
+.finance-inline-code {
+    background: #fff8df;
+    border: 2px solid #cba65e;
+    padding: 4px 8px;
+    color: #4d3215;
+    font-family: monospace;
+}
+
+.finance-submit {
+    transition: transform 0.12s ease, filter 0.12s ease;
+}
+
+.finance-submit:hover {
+    filter: brightness(1.04);
 }
 
 @keyframes fadeIn {
@@ -256,6 +342,14 @@
 
     .finance-layout .px-table th {
         font-size: 0.6rem;
+    }
+
+    .finance-toggle-row {
+        flex-direction: column;
+    }
+
+    .finance-toggle-row .finance-toggle {
+        width: 100%;
     }
 }
 </style>
