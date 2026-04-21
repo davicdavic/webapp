@@ -9,7 +9,10 @@ from flask_login import LoginManager
 from flask_wtf import CSRFProtect
 from flask_bcrypt import Bcrypt
 from flask_caching import Cache
-from flask_compress import Compress
+try:
+    from flask_compress import Compress
+except Exception:  # pragma: no cover - optional dependency during local dev
+    Compress = None
 try:
     import redis
 except Exception:  # pragma: no cover - optional in local setups
@@ -26,7 +29,7 @@ login_manager = LoginManager()
 csrf = CSRFProtect()
 bcrypt = Bcrypt()
 cache = Cache()
-compress = Compress()
+compress = Compress() if Compress else None
 session_ext = Session() if Session else None
 
 
@@ -43,7 +46,10 @@ def init_extensions(app):
         app.logger.warning(f'Cache backend init failed, falling back to simple cache: {exc}')
         app.config['CACHE_TYPE'] = 'simple'
         cache.init_app(app)
-    compress.init_app(app)
+    if compress is None:
+        app.logger.warning('Flask-Compress is unavailable; continuing without response compression')
+    else:
+        compress.init_app(app)
 
     # Shared Redis client (cache/session/game-state helpers can reuse this).
     redis_url = app.config.get('REDIS_URL') or app.config.get('CACHE_REDIS_URL')

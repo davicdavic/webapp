@@ -10,7 +10,13 @@ import string
 from datetime import datetime, timedelta
 from werkzeug.utils import secure_filename
 from flask import current_app
-from PIL import Image, UnidentifiedImageError
+try:
+    from PIL import Image, UnidentifiedImageError
+except Exception:  # pragma: no cover - optional dependency during local dev
+    Image = None
+
+    class UnidentifiedImageError(Exception):
+        pass
 from app.models import User
 
 
@@ -91,6 +97,9 @@ def save_uploaded_image_optimized(file, subfolder='posts', max_bytes=MAX_IMAGE_U
     """
     if not file or not file.filename:
         return None
+
+    if Image is None:
+        raise ValueError('Image processing is unavailable on this server right now.')
 
     safe_name = secure_filename(file.filename)
     ext = safe_name.rsplit('.', 1)[-1].lower() if '.' in safe_name else ''

@@ -415,10 +415,15 @@ def register_filters(app):
 
 def register_background_tasks(app):
     """Register background tasks"""
-    from app.services.blockchain_service import BlockchainChecker
 
     if not app.config.get('START_BLOCKCHAIN_CHECKER', True):
         app.logger.info('Blockchain checker disabled by config')
+        return
+
+    try:
+        from app.services.blockchain_service import BlockchainChecker
+    except Exception as exc:
+        app.logger.warning(f'Blockchain checker unavailable; skipping background task startup: {exc}')
         return
 
     # Initialize blockchain checker
