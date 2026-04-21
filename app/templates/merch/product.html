@@ -66,13 +66,13 @@
                         <strong>{{ product.seller.username }}</strong>
                     </a>
                     {% if seller_sales is not none %}
-                        <span>? ?? {{ seller_sales|format_number }}</span>
+                        <span> | Sales: {{ seller_sales|format_number }}</span>
                     {% endif %}
                     {% if seller_rating %}
                         {% set stars = seller_rating.avg|round(0, 'common')|int %}
-                        <span>? Rating:
+                        <span> | Rating:
                             {% for i in range(1, 6) %}
-                                {% if i <= stars %}?{% else %}?{% endif %}
+                                {% if i <= stars %}★{% else %}☆{% endif %}
                             {% endfor %}
                             ({{ seller_rating.count }})
                         </span>
@@ -162,9 +162,9 @@
                     <label class="px-label">Share Location *</label>
                     <button type="button" id="share-location-btn" class="px-btn px-btn-secondary">Share Location</button>
                     <div id="location-status" class="px-text-sm px-text-muted" style="margin-top: 6px;">Location not shared</div>
+                    <input type="text" name="shipping_location_text" id="shipping-location-text" class="px-input" placeholder="Your location or delivery address" style="margin-top: 10px;" required>
                     <input type="hidden" name="shipping_lat" id="shipping-lat">
                     <input type="hidden" name="shipping_lng" id="shipping-lng">
-                    <input type="hidden" name="shipping_location_text" id="shipping-location-text">
                 </div>
                 {% endif %}
 
@@ -206,19 +206,22 @@
 const quantityInput = document.getElementById('quantity');
 const qtyDisplay = document.getElementById('qty-display');
 const totalDisplay = document.getElementById('total-display');
-const price = {{ product.price }};
+const price = {{ product.price|int }};
 
 if (quantityInput) {
-quantityInput.addEventListener('input', function() {
-    let qty = parseInt(this.value) || 0;
-    // Validate: no negative, no decimals, max = product.quantity
-    if (qty < 1) qty = 1;
-    if (qty > {{ product.quantity }}) qty = {{ product.quantity }};
-    this.value = qty;
-    
-    qtyDisplay.textContent = qty;
-    totalDisplay.textContent = '🪙 ' + (qty * price);
-});
+    quantityInput.addEventListener('input', function() {
+        let qty = parseInt(this.value) || 0;
+        if (qty < 1) qty = 1;
+        if (qty > {{ product.quantity }}) qty = {{ product.quantity }};
+        this.value = qty;
+
+        if (qtyDisplay) {
+            qtyDisplay.textContent = qty;
+        }
+        if (totalDisplay) {
+            totalDisplay.textContent = '🪙 ' + (qty * price);
+        }
+    });
 }
 
 const shareButton = document.getElementById('share-location-btn');
@@ -226,30 +229,23 @@ const locationStatus = document.getElementById('location-status');
 const latInput = document.getElementById('shipping-lat');
 const lngInput = document.getElementById('shipping-lng');
 const locationTextInput = document.getElementById('shipping-location-text');
-const orderSubmit = document.getElementById('order-submit-btn');
 
 function setLocationReady(ready, message) {
     if (locationStatus) {
         locationStatus.textContent = message || (ready ? 'Location shared' : 'Location not shared');
         locationStatus.style.color = ready ? 'var(--px-green)' : 'var(--px-text-muted)';
     }
-    if (orderSubmit && shareButton) {
-        orderSubmit.disabled = !ready;
-        if (orderSubmit.disabled) {
-            orderSubmit.style.opacity = '0.6';
-            orderSubmit.style.cursor = 'not-allowed';
-        } else {
-            orderSubmit.style.opacity = '';
-            orderSubmit.style.cursor = '';
-        }
-    }
 }
 
 if (shareButton && latInput && lngInput) {
-    setLocationReady(false);
+    setLocationReady(Boolean(locationTextInput && locationTextInput.value));
     shareButton.addEventListener('click', function() {
         if (!navigator.geolocation) {
-            setLocationReady(false, 'Geolocation not supported');
+            setLocationReady(false, 'Geolocation is not supported. Type your location manually.');
+            return;
+        }
+        if (!window.isSecureContext && location.protocol !== 'http:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+            setLocationReady(false, 'Location sharing needs HTTPS. Type your location manually.');
             return;
         }
         shareButton.disabled = true;
@@ -258,15 +254,19 @@ if (shareButton && latInput && lngInput) {
             latInput.value = pos.coords.latitude;
             lngInput.value = pos.coords.longitude;
             if (locationTextInput) {
-                locationTextInput.value = `${pos.coords.latitude},${pos.coords.longitude}`;
+                locationTextInput.value = `Lat ${pos.coords.latitude.toFixed(6)}, Lng ${pos.coords.longitude.toFixed(6)}`;
             }
             shareButton.textContent = 'Location Shared';
-            setLocationReady(true, 'Location shared');
-        }, function() {
+            shareButton.disabled = false;
+            setLocationReady(true, 'Location shared successfully');
+        }, function(error) {
             shareButton.disabled = false;
             shareButton.textContent = 'Share Location';
-            setLocationReady(false, 'Location permission denied');
-        });
+            const errorMessage = error && error.code === 1
+                ? 'Location permission denied. Type your location manually.'
+                : 'Could not get your location. Type your location manually.';
+            setLocationReady(false, errorMessage);
+        }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
     });
 }
 

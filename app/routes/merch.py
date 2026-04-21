@@ -14,7 +14,7 @@ from app.models import SellerChatConversation, SellerChatMessage, SellerNotifica
 from app.services.seller_service import SELLER_PLANS
 from app.services.history_service import HistoryService
 from app.utils import save_uploaded_file, save_uploaded_image_optimized
-from sqlalchemy import func
+from sqlalchemy import func, or_
 
 merch_bp = Blueprint('merch', __name__)
 
@@ -92,6 +92,23 @@ def _seller_rating_summary(seller_id):
     ).filter(SellerRating.seller_id == seller_id).first()
     return float(avg_rating or 0), int(rating_count or 0)
 
+
+def _apply_store_filters(query, search='', seller_search='', product_type=''):
+    """Apply shared store filters for page and API results."""
+    if product_type in {'digital', 'physical'}:
+        query = query.filter(Product.product_type == product_type)
+
+    if search:
+        query = query.filter(Product.name.ilike(f'%{search}%'))
+
+    if seller_search:
+        seller_filters = [User.username.ilike(f'%{seller_search}%')]
+        if seller_search.isdigit():
+            seller_filters.append(User.id == int(seller_search))
+        query = query.join(User, Product.seller_id == User.id).filter(or_(*seller_filters))
+
+    return query
+
 def _calculate_cancel_split(total_price: int) -> tuple[int, int, int]:
     total = max(int(total_price or 0), 0)
     buyer_refund = int(round(total * CANCEL_REFUND_RATE))
@@ -124,16 +141,14 @@ def _attach_cancel_metadata(order: MerchOrder, now: datetime) -> None:
 def index():
     """Merch store home - display all products"""
     search = request.args.get('search', '').strip()
+    seller_search = request.args.get('seller', '').strip()
     product_type = (request.args.get('type') or '').strip().lower()
     sort = request.args.get('sort', 'latest').strip()
     page = request.args.get('page', 1, type=int)
     per_page = 12
     
     query = Product.query.filter_by(is_active=True)
-    if product_type in {'digital', 'physical'}:
-        query = query.filter_by(product_type=product_type)
-    if search:
-        query = query.filter(Product.name.ilike(f'%{search}%'))
+    query = _apply_store_filters(query, search=search, seller_search=seller_search, product_type=product_type)
     
     # Sorting
     if sort == 'price_low':
@@ -164,6 +179,7 @@ def index():
     return render_template('merch/index.html', 
                          products=products, 
                          search=search,
+                         seller_search=seller_search,
                          product_type=product_type,
                          sort=sort,
                          pagination=products_page,
@@ -185,21 +201,7 @@ def api_products():
     page = max(1, page)
     
     query = Product.query.filter_by(is_active=True)
-    
-    # Filter by seller
-    if seller_search:
-        seller = User.query.filter(
-            (User.username.ilike(f'%{seller_search}%')) | 
-            (User.id == int(seller_search) if seller_search.isdigit() else False)
-        ).first()
-        if seller:
-            query = query.filter_by(seller_id=seller.id)
-    
-    if product_type in {'digital', 'physical'}:
-        query = query.filter_by(product_type=product_type)
-    
-    if search:
-        query = query.filter(Product.name.ilike(f'%{search}%'))
+    query = _apply_store_filters(query, search=search, seller_search=seller_search, product_type=product_type)
     
     # Get all matching products first for filtering active sellers
     all_products = query.all()
@@ -426,8 +428,8 @@ def buy_product(product_id):
             flash('Name, country, city, and phone are required for physical orders', 'error')
             return redirect(url_for('merch.product_detail', product_id=product.id))
 
-        if shipping_lat is None or shipping_lng is None:
-            flash('Please share your location before ordering', 'error')
+        if not shipping_location_text and (shipping_lat is None or shipping_lng is None):
+            flash('Please share your location or type your address before ordering', 'error')
             return redirect(url_for('merch.product_detail', product_id=product.id))
 
         if not shipping_location_text:

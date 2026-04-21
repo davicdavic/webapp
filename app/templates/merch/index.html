@@ -13,15 +13,15 @@
         
         <!-- Filter Tabs -->
         <div class="filter-tabs">
-            <a href="{{ url_for('merch.index', search=search, sort=sort) }}" 
+            <a href="{{ url_for('merch.index', search=search, seller=seller_search, sort=sort) }}" 
                class="filter-tab {% if not product_type %}active{% endif %}">
                 All
             </a>
-            <a href="{{ url_for('merch.index', type='digital', search=search, sort=sort) }}" 
+            <a href="{{ url_for('merch.index', type='digital', search=search, seller=seller_search, sort=sort) }}" 
                class="filter-tab {% if product_type == 'digital' %}active{% endif %}">
                 Digital
             </a>
-            <a href="{{ url_for('merch.index', type='physical', search=search, sort=sort) }}" 
+            <a href="{{ url_for('merch.index', type='physical', search=search, seller=seller_search, sort=sort) }}" 
                class="filter-tab {% if product_type == 'physical' %}active{% endif %}">
                 Physical
             </a>
@@ -43,7 +43,7 @@
                        placeholder="Search products..."
                        value="{{ search|default('') }}">
                 {% if search %}
-                <button class="search-clear" onclick="clearSearch()">×</button>
+                <button type="button" class="search-clear" onclick="clearSearch()">×</button>
                 {% endif %}
             </div>
             
@@ -57,13 +57,13 @@
                        id="sellerSearch" 
                        class="search-input seller-input" 
                        placeholder="Search by seller..."
-                       value="{{ request.args.get('seller', '') }}">
+                       value="{{ seller_search|default('') }}">
             </div>
         </div>
         
         <div class="sort-section">
             <label class="sort-label">Sort by:</label>
-            <select id="sortSelect" class="sort-select" onchange="updateSort()">
+            <select id="sortSelect" class="sort-select">
                 <option value="latest" {% if sort == 'latest' %}selected{% endif %}>Latest</option>
                 <option value="price_low" {% if sort == 'price_low' %}selected{% endif %}>Price: Low to High</option>
                 <option value="price_high" {% if sort == 'price_high' %}selected{% endif %}>Price: High to Low</option>
@@ -351,7 +351,7 @@
 
 .products-feed {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 16px;
 }
 
@@ -518,6 +518,7 @@
     align-items: center;
     padding-top: 12px;
     border-top: 1px solid var(--store-border);
+    gap: 10px;
 }
 
 .product-price {
@@ -575,6 +576,12 @@
     margin-bottom: 16px;
 }
 
+@media (max-width: 1100px) {
+    .products-feed {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
 @media (max-width: 768px) {
     .store-header {
         flex-direction: column;
@@ -606,7 +613,96 @@
     }
 
     .products-feed {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+    }
+
+    .product-content {
+        padding: 12px;
+    }
+
+    .product-title {
+        font-size: 0.52rem;
+        min-height: 2.4em;
+    }
+
+    .product-description {
+        font-size: 0.72rem;
+        margin-bottom: 10px;
+    }
+
+    .product-seller {
+        gap: 6px;
+        margin-bottom: 10px;
+        font-size: 0.72rem;
+    }
+
+    .seller-avatar {
+        width: 20px;
+        height: 20px;
+        font-size: 0.62rem;
+    }
+
+    .seller-rating {
+        font-size: 0.68rem;
+    }
+
+    .product-price {
+        font-size: 0.62rem;
+    }
+
+    .product-footer {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .product-footer .px-btn {
+        width: 100%;
+        justify-content: center;
+        font-size: 0.58rem;
+        padding: 10px 8px;
+    }
+
+    .product-type-badge {
+        top: 8px;
+        left: 8px;
+        padding: 4px 8px;
+        font-size: 0.56rem;
+    }
+
+    .low-stock-badge {
+        bottom: 8px;
+        left: 8px;
+        padding: 4px 8px;
+        font-size: 0.62rem;
+    }
+
+    .sold-out-badge {
+        font-size: 0.55rem;
+        text-align: center;
+        padding: 0 10px;
+    }
+
+    .product-image-container {
+        aspect-ratio: 1 / 1;
+    }
+}
+
+@media (max-width: 420px) {
+    .store-page {
+        padding-inline: 2px;
+    }
+
+    .products-feed {
+        gap: 10px;
+    }
+
+    .product-content {
+        padding: 10px;
+    }
+
+    .product-title {
+        font-size: 0.48rem;
     }
 }
 </style>
@@ -617,10 +713,10 @@
     let currentPage = 1;
     let isLoading = false;
     let hasMore = true;
-    let searchQuery = '';
-    let sellerQuery = '';
-    let typeFilter = '{{ product_type|default("") }}';
-    let sortBy = '{{ sort|default("latest") }}';
+    let searchQuery = {{ search|default('', true)|tojson }};
+    let sellerQuery = {{ seller_search|default('', true)|tojson }};
+    let typeFilter = {{ product_type|default('', true)|tojson }};
+    let sortBy = {{ sort|default('latest', true)|tojson }};
     const limit = 12;
     
     const feed = document.getElementById('productsFeed');
@@ -628,8 +724,10 @@
     const endMessage = document.getElementById('endMessage');
     const emptyState = document.getElementById('emptyState');
     const loadMoreContainer = document.getElementById('loadMoreContainer');
+    const loadMoreBtn = document.getElementById('loadMoreBtn');
     const productSearch = document.getElementById('productSearch');
     const sellerSearch = document.getElementById('sellerSearch');
+    const sortSelect = document.getElementById('sortSelect');
     
     // Initial page from server-side
     {% if pagination %}
@@ -647,7 +745,7 @@
     }
     
     // Build URL with current filters
-    function buildUrl(page, overrideParams = {}) {
+    function buildApiUrl(page, overrideParams = {}) {
         const params = new URLSearchParams({
             page: page,
             limit: limit,
@@ -659,10 +757,33 @@
         if (sellerQuery) params.set('seller', sellerQuery);
         
         for (const [key, value] of Object.entries(overrideParams)) {
-            params.set(key, value);
+            if (value === undefined || value === null || value === '') {
+                params.delete(key);
+            } else {
+                params.set(key, value);
+            }
         }
         
         return `{{ url_for('merch.api_products') }}?${params.toString()}`;
+    }
+
+    function buildPageUrl(overrideParams = {}) {
+        const params = new URLSearchParams();
+        if (searchQuery) params.set('search', searchQuery);
+        if (sellerQuery) params.set('seller', sellerQuery);
+        if (typeFilter) params.set('type', typeFilter);
+        if (sortBy && sortBy !== 'latest') params.set('sort', sortBy);
+
+        for (const [key, value] of Object.entries(overrideParams)) {
+            if (value === undefined || value === null || value === '') {
+                params.delete(key);
+            } else {
+                params.set(key, value);
+            }
+        }
+
+        const qs = params.toString();
+        return qs ? `{{ url_for('merch.index') }}?${qs}` : `{{ url_for('merch.index') }}`;
     }
     
     // Load more products
@@ -673,7 +794,7 @@
         loadingIndicator.style.display = 'flex';
         
         try {
-            const response = await fetch(buildUrl(currentPage + 1), {
+            const response = await fetch(buildApiUrl(currentPage + 1), {
                 credentials: 'same-origin'
             });
             
@@ -774,7 +895,7 @@
         loadingIndicator.style.display = 'flex';
         
         try {
-            const response = await fetch(buildUrl(1), {
+            const response = await fetch(buildApiUrl(1), {
                 credentials: 'same-origin'
             });
             
@@ -810,38 +931,49 @@
     // Search handlers
     const handleProductSearch = debounce(function(query) {
         searchQuery = query;
-        window.history.pushState({}, '', buildUrl(1, { search: query || undefined }));
+        window.history.pushState({}, '', buildPageUrl({ search: query || undefined, page: undefined }));
         reloadProducts();
     }, 400);
     
     const handleSellerSearch = debounce(function(query) {
         sellerQuery = query;
-        window.history.pushState({}, '', buildUrl(1, { seller: query || undefined }));
+        window.history.pushState({}, '', buildPageUrl({ seller: query || undefined, page: undefined }));
         reloadProducts();
     }, 400);
     
-    productSearch.addEventListener('input', function() {
-        handleProductSearch(this.value.trim());
-    });
+    if (productSearch) {
+        productSearch.addEventListener('input', function() {
+            handleProductSearch(this.value.trim());
+        });
+    }
     
-    sellerSearch.addEventListener('input', function() {
-        handleSellerSearch(this.value.trim());
-    });
+    if (sellerSearch) {
+        sellerSearch.addEventListener('input', function() {
+            handleSellerSearch(this.value.trim());
+        });
+    }
 
     // Sort handler
     function updateSort() {
         sortBy = document.getElementById('sortSelect').value;
-        window.history.pushState({}, '', buildUrl(1));
+        window.history.pushState({}, '', buildPageUrl({ page: undefined }));
         reloadProducts();
     }
+    window.updateSort = updateSort;
     
     // Clear search
     window.clearSearch = function() {
-        productSearch.value = '';
+        if (productSearch) {
+            productSearch.value = '';
+        }
         searchQuery = '';
-        window.history.pushState({}, '', buildUrl(1, { search: undefined }));
+        window.history.pushState({}, '', buildPageUrl({ search: undefined, page: undefined }));
         reloadProducts();
     };
+
+    if (sortSelect) {
+        sortSelect.addEventListener('change', updateSort);
+    }
     
     // Infinite scroll observer
     const observer = new IntersectionObserver((entries) => {
@@ -855,14 +987,16 @@
     }
     
     // Load more button
-    document.getElementById('loadMoreBtn').addEventListener('click', function() {
-        this.disabled = true;
-        this.textContent = 'Loading...';
-        loadProducts().then(() => {
-            this.disabled = false;
-            this.textContent = 'Load More Products';
+    if (loadMoreBtn) {
+        loadMoreBtn.addEventListener('click', function() {
+            this.disabled = true;
+            this.textContent = 'Loading...';
+            loadProducts().then(() => {
+                this.disabled = false;
+                this.textContent = 'Load More Products';
+            });
         });
-    });
+    }
     
     // Initial check
     {% if pagination and not pagination.has_next %}
