@@ -167,6 +167,28 @@ def settings():
                 db.session.commit()
                 flash('Email updated successfully!', 'success')
         
+        # Update username
+        username = request.form.get('username', '').strip()
+        if username:
+            existing = User.query.filter_by(username=username).first()
+            if existing and existing.id != current_user.id:
+                flash('Username already taken', 'error')
+            elif username == current_user.username:
+                flash('Username is the same as current', 'info')
+            else:
+                # Invalidate old cache
+                cache.delete(f'profile_view_{current_user.username}')
+                cache.delete(f'profile_index_{current_user.id}')
+                
+                current_user.username = username
+                db.session.commit()
+                
+                # Cache with new username
+                cache.delete(f'profile_view_{username}')
+                cache.delete(f'profile_index_{current_user.id}')
+                
+                flash('Username updated successfully!', 'success')
+        
         return redirect(url_for('profile.settings'))
 
     latest_request = SellerRequest.query.filter_by(user_id=current_user.id)\

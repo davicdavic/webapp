@@ -94,10 +94,14 @@
     color: var(--px-cyan);
 }
 
-.px-player-name {
-    font-family: 'Press Start 2P', cursive;
-    font-size: 0.62rem;
-    color: var(--px-text);
+.px-player-name-link {
+    text-decoration: none;
+    color: inherit;
+}
+
+.px-player-name-link:hover .px-player-name {
+    color: var(--px-gold);
+    text-decoration: underline;
 }
 
 .px-score-value {
@@ -189,7 +193,9 @@
                         <div class="px-player-avatar px-avatar-default">{{ row_user.username[0]|upper if row_user else '?' }}</div>
                         {% endif %}
                         <div>
-                            <div class="px-player-name">{{ row_user.username if row_user else 'Unknown Player' }}</div>
+                            <a href="{{ url_for('profile.view', username=row_user.username) if row_user else '#' }}" class="px-player-name-link">
+                                <div class="px-player-name">{{ row_user.username if row_user else 'Unknown Player' }}</div>
+                            </a>
                             {% if row_user and row_user.user_6digit %}
                             <small class="px-text-muted">#{{ row_user.user_6digit }}</small>
                             {% endif %}

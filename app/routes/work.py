@@ -356,3 +356,39 @@ def create_withdraw():
     return render_template('work/create_withdraw.html')
 
 
+@work_bp.route('/finance')
+@login_required
+def finance():
+    """Combined deposit and withdraw page"""
+    from app.services.history_service import HistoryService
+    from app.services import DepositService
+
+    HistoryService.archive_due_items(user_id=current_user.id)
+
+    # Get recent deposits
+    deposits = DepositService.get_user_deposits(current_user.id, page=1, per_page=10)
+
+    # Get recent withdrawals
+    query = WithdrawRequest.query.filter_by(user_id=current_user.id).filter(WithdrawRequest.is_archived.is_(False))
+    withdrawals = query.order_by(WithdrawRequest.created_at.desc()).limit(10).all()
+
+    coin_contracts = current_app.config.get('COIN_CONTRACTS', {})
+    allowed = set(current_app.config.get('ALLOWED_DEPOSIT_COINS', ())) or set(coin_contracts.keys())
+    
+    # Prepare coin choices for dropdown
+    coins = [
+        {'type': coin, 'config': config}
+        for coin, config in coin_contracts.items()
+        if coin in allowed
+    ]
+
+    return render_template(
+        'work/finance.html',
+        deposits=deposits,
+        withdrawals=withdrawals,
+        coins=coins,
+        wallet_address=current_app.config.get('WALLET_ADDRESS'),
+        request_fee=get_work_request_fee()
+    )
+
+

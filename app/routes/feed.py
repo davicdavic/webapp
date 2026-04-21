@@ -133,17 +133,49 @@ def index():
     )
 
 
-@feed_bp.route('/load')
-def load_more():
-    """Fetch more thread cards as JSON for incremental feed loading."""
+@feed_bp.route('/api/posts')
+def api_posts():
+    """API endpoint for paginated posts."""
     page = request.args.get('page', 1, type=int)
-    posts = _query_thread_posts(page=page)
-    html = render_template('feed/_thread_cards.html', posts=posts.items)
+    limit = request.args.get('limit', 10, type=int)
+    
+    # Ensure reasonable limits
+    limit = min(max(limit, 1), 50)
+    page = max(page, 1)
+    
+    posts = _query_thread_posts(page=page, per_page=limit)
+    
+    # Convert posts to JSON-serializable format
+    posts_data = []
+    for post in posts.items:
+        author_data = None
+        if post.author:
+            author_data = {
+                'id': post.author.id,
+                'username': post.author.username,
+                'profile_pic': post.author.profile_pic,
+                'user_6digit': post.author.user_6digit
+            }
+        
+        posts_data.append({
+            'id': post.id,
+            'content': post.content,
+            'image_path': post.image_path,
+            'created_at': post.created_at.isoformat() if post.created_at else None,
+            'author': author_data,
+            'post_number': post.post_number,
+            'reply_count': len(_collect_thread_replies(post.id)) if post.parent_id is None else 0
+        })
+    
     return jsonify({
-        'ok': True,
-        'html': html,
-        'has_next': bool(posts.has_next),
-        'next_page': posts.next_num if posts.has_next else None
+        'posts': posts_data,
+        'page': posts.page,
+        'pages': posts.pages,
+        'total': posts.total,
+        'has_next': posts.has_next,
+        'has_prev': posts.has_prev,
+        'next_page': posts.next_num if posts.has_next else None,
+        'prev_page': posts.prev_num if posts.has_prev else None
     })
 
 

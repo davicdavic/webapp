@@ -162,10 +162,14 @@ def webhook():
         return jsonify({'error': 'Deposit not found.'}), 404
 
     try:
-        if payment_status in ('finished', 'partially_paid'):
+        if payment_status in ('finished', 'partially_paid', 'confirmed'):
             DepositService.complete_deposit_payment(payment_id, payment_status)
-        elif payment_status in ('canceled', 'expired', 'failed'):
-            deposit.status = 'expired'
+        elif payment_status in ('canceled', 'expired', 'failed', 'timeout'):
+            deposit.status = 'timeout'
+            db.session.add(deposit)
+            db.session.commit()
+        elif payment_status == 'pending':
+            deposit.status = 'pending'
             db.session.add(deposit)
             db.session.commit()
     except Exception as exc:

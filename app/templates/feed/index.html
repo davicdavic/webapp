@@ -163,6 +163,41 @@
             background: #27292d;
         }
     }
+    
+    /* Author avatars and links */
+    .chan-author-avatar {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        margin-right: 8px;
+        vertical-align: middle;
+        object-fit: cover;
+    }
+    
+    .chan-author-link {
+        color: inherit;
+        text-decoration: none;
+    }
+    
+    .chan-author-link:hover .name {
+        color: #117743;
+        text-decoration: underline;
+    }
+    
+    .chan-user-id {
+        color: #789922;
+        font-size: 0.8em;
+        margin-left: 4px;
+    }
+    
+    .lazy-image {
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+    
+    .lazy-image[src] {
+        opacity: 1;
+    }
 </style>
 {% endblock %}
 
@@ -303,6 +338,7 @@ document.addEventListener('keydown', function(e) {
 
 let feedNextPage = {{ posts.next_num if posts.has_next else 'null' }};
 let feedLoading = false;
+let observer = null;
 
 async function loadMoreFeedPosts() {
     if (feedLoading || !feedNextPage) return;
@@ -317,26 +353,91 @@ async function loadMoreFeedPosts() {
     indicator.style.display = 'block';
 
     try {
-        const response = await fetch(`{{ url_for('feed.load_more') }}?page=${feedNextPage}`, {
+        const response = await fetch(`/feed/api/posts?page=${feedNextPage}&limit=10`, {
             credentials: 'same-origin'
         });
         if (!response.ok) throw new Error('Failed to load posts');
-        const payload = await response.json();
-        if (!payload || payload.ok !== true) throw new Error('Invalid response');
-
-        if (payload.html) {
-            list.insertAdjacentHTML('beforeend', payload.html);
+        const data = await response.json();
+        
+        if (data.posts && data.posts.length > 0) {
+            // Render posts using the template
+            const html = renderPostsHTML(data.posts);
+            list.insertAdjacentHTML('beforeend', html);
+            
+            // Initialize lazy loading for new images
+            initializeLazyLoading();
         }
-        feedNextPage = payload.next_page || null;
-        if (!payload.has_next || !feedNextPage) {
+        
+        feedNextPage = data.next_page || null;
+        if (!data.has_next || !feedNextPage) {
             wrap.style.display = 'none';
         }
     } catch (err) {
+        console.error('Could not load more posts:', err);
         alert('Could not load more posts. Please try again.');
     } finally {
         feedLoading = false;
         button.disabled = false;
         indicator.style.display = 'none';
+    }
+}
+
+function renderPostsHTML(posts) {
+    return posts.map(post => `
+        <div class="chan-post" id="post-${post.post_number}">
+            <div class="chan-post-header">
+                <span class="chan-post-number">#${post.post_number}</span>
+                <span class="chan-post-author">
+                    ${post.author ? `<a href="/profile/${post.author.username}" class="chan-author-link">${post.author.username}</a>` : 'Anonymous'}
+                    ${post.author && post.author.user_6digit ? `<span class="chan-user-id">#${post.author.user_6digit}</span>` : ''}
+                </span>
+                <span class="chan-post-time">${new Date(post.created_at).toLocaleString()}</span>
+            </div>
+            <div class="chan-post-content">
+                <div class="chan-post-text">${formatPostContent(post.content)}</div>
+                ${post.image_path ? `<div class="chan-post-image"><img data-src="${post.image_path}" alt="Post image" class="lazy-image" loading="lazy"></div>` : ''}
+            </div>
+            <div class="chan-post-footer">
+                <a href="/feed/${post.id}" class="chan-reply-link">
+                    ${post.reply_count > 0 ? `${post.reply_count} replies` : 'Reply'}
+                </a>
+            </div>
+        </div>
+    `).join('');
+}
+
+function formatPostContent(content) {
+    if (!content) return '';
+    // Convert >>123 to reply links
+    return content.replace(/>>(\d+)/g, '<a href="#post-$1" class="chan-reply-ref" onclick="scrollToPost($1)">>>$1</a>');
+}
+
+function initializeLazyLoading() {
+    const images = document.querySelectorAll('.lazy-image');
+    images.forEach(img => {
+        if (img.dataset.src && !img.src) {
+            img.src = img.dataset.src;
+            img.classList.remove('lazy-image');
+        }
+    });
+}
+
+function setupInfiniteScroll() {
+    if (observer) observer.disconnect();
+    
+    observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting && entry.target.id === 'feed-load-more') {
+                loadMoreFeedPosts();
+            }
+        });
+    }, {
+        rootMargin: '100px'
+    });
+    
+    const loadMoreBtn = document.getElementById('feed-load-more');
+    if (loadMoreBtn) {
+        observer.observe(loadMoreBtn);
     }
 }
 
@@ -346,13 +447,23 @@ document.addEventListener('DOMContentLoaded', function() {
         button.dataset.loadBound = '1';
         button.addEventListener('click', loadMoreFeedPosts);
     }
+    
+    // Initialize lazy loading for existing images
+    initializeLazyLoading();
+    
+    // Setup infinite scroll
+    setupInfiniteScroll();
 });
+
 document.addEventListener('turbo:load', function() {
     const button = document.getElementById('feed-load-more');
     if (button && button.dataset.loadBound !== '1') {
         button.dataset.loadBound = '1';
         button.addEventListener('click', loadMoreFeedPosts);
     }
+    
+    initializeLazyLoading();
+    setupInfiniteScroll();
 });
 </script>
 {% endblock %}

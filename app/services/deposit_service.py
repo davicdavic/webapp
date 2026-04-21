@@ -241,10 +241,10 @@ class DepositService:
         if amount <= 0:
             raise ValueError('Amount must be greater than 0.')
 
-        allowed_networks = {'TRC20', 'ERC20', 'BEP20'}
+        allowed_networks = {'ERC20', 'BEP20'}
         network = (network or '').strip().upper()
         if network not in allowed_networks:
-            raise ValueError('Invalid network selected.')
+            raise ValueError('Invalid network selected. Only ERC20 and BEP20 are supported.')
 
         # Map network to NowPayments currency code
         currency_map = {

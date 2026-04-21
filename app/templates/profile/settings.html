@@ -92,9 +92,18 @@
                 />
             </div>
 
-            <div class="px-info-group px-mb-lg">
-                <label>Username</label>
-                <p>{{ current_user.username }}</p>
+            <div class="px-form-group">
+                <label for="username" class="px-form-label">Username</label>
+                <input 
+                    type="text" 
+                    id="username" 
+                    name="username" 
+                    class="px-input" 
+                    value="{{ current_user.username }}"
+                    placeholder="Enter your username"
+                    minlength="3"
+                    maxlength="80"
+                />
             </div>
 
             <div class="px-info-group px-mb-lg">

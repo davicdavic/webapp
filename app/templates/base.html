@@ -289,9 +289,9 @@
                     <span class="px-nav-icon">&#128240;</span>
                     <span class="px-nav-text">Feed</span>
                 </a>
-                <a href="{{ url_for('deposit.index') }}" class="px-nav-link {% if request.endpoint and request.endpoint.startswith('deposit.') %}active{% endif %}" data-turbo-preload="true">
+                <a href="{{ url_for('work.finance') }}" class="px-nav-link {% if request.endpoint == 'work.finance' %}active{% endif %}" data-turbo-preload="true">
                     <span class="px-nav-icon">&#128176;</span>
-                    <span class="px-nav-text">Deposit</span>
+                    <span class="px-nav-text">Finance</span>
                 </a>
                 <a href="{{ url_for('work.index') }}" class="px-nav-link {% if request.endpoint == 'work.index' %}active{% endif %}" data-turbo-preload="true">
                     <span class="px-nav-icon">&#128736;</span>

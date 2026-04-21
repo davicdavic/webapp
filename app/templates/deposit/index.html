@@ -34,9 +34,8 @@ Deposit - RetroQuest
             <div class="px-form-group">
                 <label class="px-label" for="network">Network</label>
                 <select id="network" name="network" class="px-input" required>
-                    <option value="TRC20">USDT (TRC20 - low fee)</option>
-                    <option value="ERC20">USDT (ERC20 - high fee)</option>
-                    <option value="BEP20">USDT (BEP20 - medium fee)</option>
+                    <option value="ERC20">USDT (ERC20)</option>
+                    <option value="BEP20">USDT (BEP20)</option>
                 </select>
             </div>
 
@@ -88,8 +87,10 @@ Deposit - RetroQuest
                 {% set network_value = deposit.network if deposit.network else deposit.coin_type %}
                 {% if deposit.status in ['completed', 'success'] %}
                     {% set badge = 'completed' %}
-                {% elif deposit.status in ['expired', 'cancelled'] %}
+                {% elif deposit.status in ['expired', 'cancelled', 'timeout'] %}
                     {% set badge = 'cancelled' %}
+                {% elif deposit.status == 'pending' %}
+                    {% set badge = 'pending' %}
                 {% else %}
                     {% set badge = 'pending' %}
                 {% endif %}

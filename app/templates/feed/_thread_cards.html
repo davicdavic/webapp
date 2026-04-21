@@ -4,7 +4,15 @@
         <div class="chan-op-container" id="post-{{ post.post_number or post.id }}">
             <div class="chan-post">
                 <div class="chan-post-header">
-                    <span class="name">{{ post.author.username if post.author else 'Unknown' }}</span>
+                    {% if post.author and post.author.profile_pic %}
+                    <img src="{{ url_for('static', filename=post.author.profile_pic) }}" alt="Avatar" class="chan-author-avatar">
+                    {% endif %}
+                    <a href="{{ url_for('profile.view', username=post.author.username) if post.author else '#' }}" class="chan-author-link">
+                        <span class="name">{{ post.author.username if post.author else 'Unknown' }}</span>
+                    </a>
+                    {% if post.author and post.author.user_6digit %}
+                    <span class="chan-user-id">#{{ post.author.user_6digit }}</span>
+                    {% endif %}
                     <span class="post-id">ID: {{ post.post_number[-8:] if post.post_number else '????' }}</span>
                     <span class="date">{{ post.created_at.strftime('%m/%d/%y(%a)%H:%M:%S') if post.created_at else '' }}</span>
                     <span class="post-number" onclick="insertReply({{ post.post_number or post.id }})">No.{{ post.post_number or post.id }}</span>
@@ -19,9 +27,9 @@
                 {% if post.image_path %}
                 <div class="chan-post-image-container">
                     <img
-                        src="{{ url_for('static', filename=post.image_path|static_path) }}"
+                        data-src="{{ url_for('static', filename=post.image_path|static_path) }}"
                         alt="Post image"
-                        class="chan-post-image"
+                        class="chan-post-image lazy-image"
                         loading="lazy"
                         onclick="expandImage(this)"
                     >

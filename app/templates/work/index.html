@@ -5,7 +5,7 @@
 {% block content %}
 <h1 class="px-mb-lg">Work Center</h1>
 
-<div class="px-grid work-center-grid" style="grid-template-columns: repeat(3, 1fr);">
+<div class="px-grid work-center-grid" style="grid-template-columns: repeat(2, 1fr);">
     <!-- Work Requests -->
     <div class="px-panel">
         <div class="px-panel-header">
@@ -35,20 +35,6 @@
         </a>
         <a href="{{ url_for('work.create_order') }}" class="px-btn px-btn-secondary px-btn-block px-mt-md">
             New Order
-        </a>
-    </div>
-
-    <!-- Withdrawals -->
-    <div class="px-panel">
-        <div class="px-panel-header">
-            <h2 class="px-panel-title">💰 Withdraw</h2>
-        </div>
-        <p class="px-text-muted">Convert your TNNO to USDT and withdraw.</p>
-        <a href="{{ url_for('work.withdraw') }}" class="px-btn px-btn-primary px-btn-block">
-            My Withdrawals
-        </a>
-        <a href="{{ url_for('work.create_withdraw') }}" class="px-btn px-btn-success px-btn-block px-mt-md">
-            Withdraw Now
         </a>
     </div>
 </div>
