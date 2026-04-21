@@ -3,7 +3,17 @@
 {% block title %}Merch Store - RetroQuest{% endblock %}
 
 {% block content %}
-<div class="store-page">
+<div
+    class="store-page"
+    data-api-url="{{ url_for('merch.api_products') }}"
+    data-page-url="{{ url_for('merch.index') }}"
+    data-initial-search="{{ search|default('', true) }}"
+    data-initial-seller="{{ seller_search|default('', true) }}"
+    data-initial-type="{{ product_type|default('', true) }}"
+    data-initial-sort="{{ sort|default('latest', true) }}"
+    data-initial-page="{% if pagination %}{{ pagination.page }}{% else %}1{% endif %}"
+    data-initial-has-next="{% if pagination and pagination.has_next %}true{% else %}false{% endif %}"
+>
     <!-- Header -->
     <div class="store-header px-panel">
         <div class="store-heading">
@@ -43,7 +53,7 @@
                        placeholder="Search products..."
                        value="{{ search|default('') }}">
                 {% if search %}
-                <button type="button" class="search-clear" onclick="clearSearch()">×</button>
+                <button type="button" class="search-clear" id="clearSearchBtn">×</button>
                 {% endif %}
             </div>
             
@@ -710,14 +720,19 @@
 <script>
 // Store Page Infinite Scroll
 (function() {
-    let currentPage = 1;
+    const storePage = document.querySelector('.store-page');
+    if (!storePage) return;
+
+    let currentPage = Number(storePage.dataset.initialPage || 1);
     let isLoading = false;
-    let hasMore = true;
-    let searchQuery = {{ search|default('', true)|tojson }};
-    let sellerQuery = {{ seller_search|default('', true)|tojson }};
-    let typeFilter = {{ product_type|default('', true)|tojson }};
-    let sortBy = {{ sort|default('latest', true)|tojson }};
+    let hasMore = (storePage.dataset.initialHasNext || 'false') === 'true';
+    let searchQuery = storePage.dataset.initialSearch || '';
+    let sellerQuery = storePage.dataset.initialSeller || '';
+    let typeFilter = storePage.dataset.initialType || '';
+    let sortBy = storePage.dataset.initialSort || 'latest';
     const limit = 12;
+    const apiBaseUrl = storePage.dataset.apiUrl;
+    const pageBaseUrl = storePage.dataset.pageUrl;
     
     const feed = document.getElementById('productsFeed');
     const loadingIndicator = document.getElementById('loadingIndicator');
@@ -728,12 +743,7 @@
     const productSearch = document.getElementById('productSearch');
     const sellerSearch = document.getElementById('sellerSearch');
     const sortSelect = document.getElementById('sortSelect');
-    
-    // Initial page from server-side
-    {% if pagination %}
-    currentPage = {{ pagination.page }};
-    hasMore = {{ 'true' if pagination.has_next else 'false' }};
-    {% endif %}
+    const clearSearchBtn = document.getElementById('clearSearchBtn');
     
     // Debounce helper
     function debounce(func, wait) {
@@ -764,7 +774,7 @@
             }
         }
         
-        return `{{ url_for('merch.api_products') }}?${params.toString()}`;
+        return `${apiBaseUrl}?${params.toString()}`;
     }
 
     function buildPageUrl(overrideParams = {}) {
@@ -783,7 +793,7 @@
         }
 
         const qs = params.toString();
-        return qs ? `{{ url_for('merch.index') }}?${qs}` : `{{ url_for('merch.index') }}`;
+        return qs ? `${pageBaseUrl}?${qs}` : pageBaseUrl;
     }
     
     // Load more products
@@ -959,20 +969,22 @@
         window.history.pushState({}, '', buildPageUrl({ page: undefined }));
         reloadProducts();
     }
-    window.updateSort = updateSort;
-    
     // Clear search
-    window.clearSearch = function() {
+    function clearSearch() {
         if (productSearch) {
             productSearch.value = '';
         }
         searchQuery = '';
         window.history.pushState({}, '', buildPageUrl({ search: undefined, page: undefined }));
         reloadProducts();
-    };
+    }
 
     if (sortSelect) {
         sortSelect.addEventListener('change', updateSort);
+    }
+
+    if (clearSearchBtn) {
+        clearSearchBtn.addEventListener('click', clearSearch);
     }
     
     // Infinite scroll observer
@@ -999,9 +1011,9 @@
     }
     
     // Initial check
-    {% if pagination and not pagination.has_next %}
-    endMessage.style.display = 'block';
-    {% endif %}
+    if (!hasMore) {
+        endMessage.style.display = 'block';
+    }
 })();
 </script>
 {% endblock %}

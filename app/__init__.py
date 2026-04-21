@@ -288,8 +288,9 @@ def register_context_processors(app):
         """Inject lightweight notification counts for global UI badges."""
         if not current_user.is_authenticated:
             return {}
-        from app.models import UserNotification
+        from app.models import UserNotification, SellerNotification
         notif_count = UserNotification.query.filter_by(user_id=current_user.id, read_at=None).count()
+        notif_count += SellerNotification.query.filter_by(seller_id=current_user.id, is_read=False).count()
         return {
             'global_notif_count': notif_count
         }

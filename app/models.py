@@ -743,15 +743,14 @@ class SellerChatConversation(db.Model):
     def last_message(self):
         return SellerChatMessage.query.filter_by(conversation_id=self.id).order_by(SellerChatMessage.created_at.desc()).first()
     
-    @property
     def unread_count(self, user_id=None):
         if not user_id:
             return 0
-        return SellerChatMessage.query.filter_by(
-            conversation_id=self.id,
-            sender_id=user_id,
-            is_read=False
-        ).filter(SellerChatMessage.sender_id != user_id).count()
+        return SellerChatMessage.query.filter(
+            SellerChatMessage.conversation_id == self.id,
+            SellerChatMessage.sender_id != user_id,
+            SellerChatMessage.is_read.is_(False)
+        ).count()
     
     def __repr__(self):
         return f'<SellerChatConversation buyer={self.buyer_id} seller={self.seller_id}>'

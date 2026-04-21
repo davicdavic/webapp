@@ -119,38 +119,12 @@
     {% endif %}
 </div>
 
-<!-- Chat Section for Seller -->
-{% if seller.id == current_user.id or current_user.is_seller or current_user.is_admin() %}
-<div class="px-panel px-mt-lg">
-    <div class="px-panel-header">
-        <h2 class="px-panel-title">💬 Messages</h2>
-    </div>
-    <div class="chat-section-content">
-        {% if seller.id == current_user.id %}
-        <p class="px-text-muted">View your messages and notifications</p>
-        <a href="{{ url_for('merch.my_chats') }}" class="px-btn px-btn-primary">View My Chats</a>
-        <a href="{{ url_for('merch.notifications') }}" class="px-btn px-btn-secondary">View Notifications</a>
-        {% else %}
-        <p>Have a question about a product? Chat directly with the seller!</p>
-        <a href="{{ url_for('merch.seller_chat', seller_id=seller.id) }}" class="px-btn px-btn-primary">💬 Start Chat</a>
-        {% endif %}
-    </div>
-</div>
-{% endif %}
-
 <style>
 .seller-actions {
     margin-top: 16px;
     display: flex;
     flex-direction: column;
     gap: 8px;
-}
-
-.chat-section-content {
-    padding: 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
 }
 </style>
 {% endblock %}

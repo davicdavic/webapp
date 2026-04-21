@@ -5,8 +5,9 @@ User profile management
 from datetime import datetime
 from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
+from sqlalchemy import or_
 from app.extensions import db, cache
-from app.models import User, SellerRequest, SellerRating, Product, MerchOrder, UserNotification
+from app.models import User, SellerRequest, SellerRating, Product, MerchOrder, UserNotification, SellerNotification, SellerChatConversation, SellerChatMessage
 from app.services import UserService
 from app.services.seller_service import SellerService, SELLER_PLANS
 from app.utils import save_uploaded_file
@@ -28,7 +29,8 @@ def index():
             seller_rating=cached.get('seller_rating'),
             notif_count=cached.get('notif_count'),
             latest_notifications=cached.get('latest_notifications'),
-            sales_unread_count=cached.get('sales_unread_count')
+            sales_unread_count=cached.get('sales_unread_count'),
+            chat_unread_count=cached.get('chat_unread_count')
         )
 
     seller_rating = None
@@ -38,10 +40,32 @@ def index():
             db.func.count(SellerRating.id)
         ).filter(SellerRating.seller_id == current_user.id).first()
         seller_rating = {'avg': float(avg_rating or 0), 'count': int(rating_count or 0)}
-    notif_count = UserNotification.query.filter_by(user_id=current_user.id, read_at=None).count()
-    latest_notifications = UserNotification.query.filter_by(user_id=current_user.id)\
+    user_notifications = UserNotification.query.filter_by(user_id=current_user.id)\
         .order_by(UserNotification.created_at.desc())\
-        .limit(5).all()
+        .limit(10).all()
+    seller_notifications = SellerNotification.query.filter_by(seller_id=current_user.id)\
+        .order_by(SellerNotification.created_at.desc())\
+        .limit(10).all()
+    latest_notifications = sorted(
+        [{'kind': 'user', 'row': n, 'created_at': n.created_at, 'message': n.message} for n in user_notifications] +
+        [{'kind': 'seller', 'row': n, 'created_at': n.created_at, 'message': n.message} for n in seller_notifications],
+        key=lambda item: item['created_at'] or datetime.min,
+        reverse=True
+    )[:5]
+    notif_count = UserNotification.query.filter_by(user_id=current_user.id, read_at=None).count()
+    notif_count += SellerNotification.query.filter_by(seller_id=current_user.id, is_read=False).count()
+
+    chat_unread_count = db.session.query(SellerChatMessage)\
+        .join(SellerChatConversation, SellerChatConversation.id == SellerChatMessage.conversation_id)\
+        .filter(
+            or_(
+                SellerChatConversation.buyer_id == current_user.id,
+                SellerChatConversation.seller_id == current_user.id
+            ),
+            SellerChatMessage.sender_id != current_user.id,
+            SellerChatMessage.is_read.is_(False)
+        )\
+        .count()
     sales_unread_count = 0
     if current_user.can_sell and not current_user.is_admin():
         last_seen = current_user.seller_sales_seen_at or datetime(1970, 1, 1)
@@ -56,7 +80,8 @@ def index():
         'seller_rating': seller_rating,
         'notif_count': notif_count,
         'latest_notifications': latest_notifications,
-        'sales_unread_count': sales_unread_count
+        'sales_unread_count': sales_unread_count,
+        'chat_unread_count': chat_unread_count
     }, timeout=20)
     return render_template(
         'profile/index.html',
@@ -64,7 +89,8 @@ def index():
         seller_rating=seller_rating,
         notif_count=notif_count,
         latest_notifications=latest_notifications,
-        sales_unread_count=sales_unread_count
+        sales_unread_count=sales_unread_count,
+        chat_unread_count=chat_unread_count
     )
 
 
@@ -203,14 +229,26 @@ def settings():
 @login_required
 def notifications():
     """User notifications."""
-    rows = UserNotification.query.filter_by(user_id=current_user.id)\
+    user_rows = UserNotification.query.filter_by(user_id=current_user.id)\
         .order_by(UserNotification.created_at.desc()).all()
-    # Mark unread as read
+    seller_rows = SellerNotification.query.filter_by(seller_id=current_user.id)\
+        .order_by(SellerNotification.created_at.desc()).all()
+
+    rows = sorted(
+        [{'kind': 'user', 'row': n, 'created_at': n.created_at} for n in user_rows] +
+        [{'kind': 'seller', 'row': n, 'created_at': n.created_at} for n in seller_rows],
+        key=lambda item: item['created_at'] or datetime.min,
+        reverse=True
+    )
+
     unread = UserNotification.query.filter_by(user_id=current_user.id, read_at=None).all()
-    if unread:
+    seller_unread = SellerNotification.query.filter_by(seller_id=current_user.id, is_read=False).all()
+    if unread or seller_unread:
         now = datetime.utcnow()
         for n in unread:
             n.read_at = now
+        for n in seller_unread:
+            n.is_read = True
         db.session.commit()
         cache.delete(f'profile_index_{current_user.id}')
     return render_template('profile/notifications.html', notifications=rows)
@@ -413,4 +451,3 @@ def leaderboard():
                            tab='users',
                            leaders=cached['leaders'],
                            user_rank=cached['user_rank'])
-

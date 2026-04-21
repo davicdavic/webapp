@@ -28,7 +28,6 @@
                 {% endfor %}
                 ({{ seller_rating.count }})
             </p>
-            <p><a href="{{ url_for('merch.seller_profile', seller_id=user.id) }}" class="px-text-sm">View Seller Profile</a></p>
             {% endif %}
             <p class="px-text-muted">ID: #{{ user.user_6digit }}</p>
 
@@ -89,6 +88,15 @@
                     <div style="font-size: 2rem;">🧾</div>
                     <div>My Purchases</div>
                 </a>
+                <a href="{{ url_for('merch.my_chats') }}" class="px-card px-text-center px-notif-card" data-turbo-preload="true">
+                    <div style="font-size: 2rem;">💬</div>
+                    <div>My Chats</div>
+                    {% if chat_unread_count %}
+                    <span class="px-notif-badge" aria-label="{{ chat_unread_count }} unread chat messages">
+                        {{ chat_unread_count }}
+                    </span>
+                    {% endif %}
+                </a>
                 {% if current_user.can_sell %}
                 <a href="{{ url_for('merch.admin_products') }}" class="px-card px-text-center" data-turbo-preload="true">
                     <div style="font-size: 2rem;">🛍️</div>
@@ -134,9 +142,18 @@
                     {% for n in latest_notifications %}
                     <li style="padding: 10px 0; border-bottom: 1px solid #eee;">
                         <div class="px-text-sm">{{ n.message }}</div>
-                        {% if n.attachment_path %}
+                        {% if n.kind == 'user' and n.row.attachment_path %}
                         <div class="px-text-sm">
-                            <a href="{{ url_for('static', filename=n.attachment_path) }}" target="_blank">View Attachment</a>
+                            <a href="{{ url_for('static', filename=n.row.attachment_path) }}" target="_blank">View Attachment</a>
+                        </div>
+                        {% endif %}
+                        {% if n.kind == 'seller' and n.row.notification_type == 'new_message' %}
+                        <div class="px-text-sm">
+                            <a href="{{ url_for('merch.chat_conversation', conversation_id=n.row.related_id) }}">Open Chat</a>
+                        </div>
+                        {% elif n.kind == 'seller' and n.row.notification_type == 'new_purchase' %}
+                        <div class="px-text-sm">
+                            <a href="{{ url_for('merch.admin_sales') }}">View Sale</a>
                         </div>
                         {% endif %}
                         <div class="px-text-muted" style="font-size: 0.7rem;">

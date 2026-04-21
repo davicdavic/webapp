@@ -1199,22 +1199,41 @@ def seller_chat(seller_id):
         db.session.add(conversation)
         db.session.commit()
     
-    # Get messages
+    return redirect(url_for('merch.chat_conversation', conversation_id=conversation.id))
+
+
+@merch_bp.route('/chat/<int:conversation_id>')
+@login_required
+def chat_conversation(conversation_id):
+    """Open a chat conversation for either buyer or seller."""
+    conversation = SellerChatConversation.query.get_or_404(conversation_id)
+
+    if current_user.id not in {conversation.buyer_id, conversation.seller_id}:
+        flash('Access denied', 'error')
+        return redirect(url_for('merch.index'))
+
+    other_user = conversation.seller if current_user.id == conversation.buyer_id else conversation.buyer
     messages = SellerChatMessage.query.filter_by(conversation_id=conversation.id)\
         .order_by(SellerChatMessage.created_at.asc()).all()
-    
-    # Mark messages as read
+
     SellerChatMessage.query.filter(
         SellerChatMessage.conversation_id == conversation.id,
         SellerChatMessage.sender_id != current_user.id,
-        SellerChatMessage.is_read == False
+        SellerChatMessage.is_read.is_(False)
+    ).update({'is_read': True})
+
+    SellerNotification.query.filter_by(
+        seller_id=current_user.id,
+        related_type='conversation',
+        related_id=conversation.id,
+        is_read=False
     ).update({'is_read': True})
     db.session.commit()
-    
+
     return render_template(
         'merch/chat.html',
         conversation=conversation,
-        seller=seller,
+        other_user=other_user,
         messages=messages
     )
 
@@ -1252,7 +1271,7 @@ def send_message(conversation_id):
         conversation_id=conversation_id,
         sender_id=current_user.id,
         message_type=message_type,
-        content=message_text if message_type == 'text' else None,
+        content=message_text or None,
         image_path=image_path
     )
     db.session.add(message)
@@ -1264,7 +1283,7 @@ def send_message(conversation_id):
     recipient_id = conversation.seller_id if current_user.id == conversation.buyer_id else conversation.buyer_id
     recipient = User.query.get(recipient_id)
     
-    if recipient and (recipient.is_seller or recipient.is_admin()):
+    if recipient:
         notification = SellerNotification(
             seller_id=recipient_id,
             notification_type='new_message',
@@ -1276,8 +1295,22 @@ def send_message(conversation_id):
         db.session.add(notification)
     
     db.session.commit()
-    
-    return redirect(url_for('merch.seller_chat', seller_id=conversation.seller_id))
+
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', ''):
+        return jsonify({
+            'ok': True,
+            'message': {
+                'id': message.id,
+                'sender_id': message.sender_id,
+                'sender_name': current_user.username,
+                'message_type': message.message_type,
+                'content': message.content,
+                'image_path': message.image_path,
+                'created_at': message.created_at.isoformat() if message.created_at else None
+            }
+        })
+
+    return redirect(url_for('merch.chat_conversation', conversation_id=conversation.id))
 
 
 @merch_bp.route('/chat/<int:conversation_id>/messages')
@@ -1291,11 +1324,19 @@ def get_messages(conversation_id):
     
     messages = SellerChatMessage.query.filter_by(conversation_id=conversation_id)\
         .order_by(SellerChatMessage.created_at.asc()).all()
+
+    SellerChatMessage.query.filter(
+        SellerChatMessage.conversation_id == conversation_id,
+        SellerChatMessage.sender_id != current_user.id,
+        SellerChatMessage.is_read.is_(False)
+    ).update({'is_read': True})
+    db.session.commit()
     
     return jsonify({
         'messages': [{
             'id': m.id,
             'sender_id': m.sender_id,
+            'sender_name': m.sender.username if m.sender else '',
             'message_type': m.message_type,
             'content': m.content,
             'image_path': m.image_path,

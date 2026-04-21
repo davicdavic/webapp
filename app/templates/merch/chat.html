@@ -1,334 +1,388 @@
 {% extends "base.html" %}
 
-{% block title %}Chat with {{ seller.username }} - RetroQuest{% endblock %}
+{% block title %}Chat with {{ other_user.username }} - RetroQuest{% endblock %}
 
 {% block content %}
-<div class="px-mb-lg">
-    <a href="{{ url_for('merch.seller_profile', seller_id=seller.id) }}" class="px-btn px-btn-secondary">Back to Seller Profile</a>
-</div>
+<div
+    class="chat-page"
+    data-conversation-id="{{ conversation.id }}"
+    data-messages-url="{{ url_for('merch.get_messages', conversation_id=conversation.id) }}"
+    data-send-url="{{ url_for('merch.send_message', conversation_id=conversation.id) }}"
+    data-current-user-id="{{ current_user.id }}"
+>
+    <div class="chat-shell px-panel">
+        <aside class="chat-sidebar">
+            <a href="{{ url_for('merch.my_chats') }}" class="px-btn px-btn-secondary chat-back-btn">← All Chats</a>
+            <div class="chat-profile-card">
+                <div class="chat-profile-avatar">{{ other_user.username[0]|upper }}</div>
+                <div class="chat-profile-meta">
+                    <h1>{{ other_user.username }}</h1>
+                    <p class="px-text-muted">{% if conversation.seller_id == other_user.id %}Seller{% else %}Buyer{% endif %}</p>
+                </div>
+            </div>
+            <div class="chat-sidebar-note">
+                <p class="px-text-sm">Pixel mail works in real time here. You can send text and images, then keep chatting without refreshing.</p>
+            </div>
+        </aside>
 
-<div class="px-panel chat-container">
-    <div class="px-panel-header">
-        <div class="chat-header">
-            <div class="chat-user-info">
-                <div class="px-avatar">{{ seller.username[0]|upper }}</div>
+        <section class="chat-main">
+            <header class="chat-topbar">
                 <div>
-                    <h3 style="margin: 0;">{{ seller.username }}</h3>
-                    <span class="px-text-muted px-text-sm">Seller</span>
+                    <div class="chat-topbar-label">Messenger</div>
+                    <div class="chat-topbar-name">{{ other_user.username }}</div>
                 </div>
+                <div class="chat-topbar-status" id="chatLiveStatus">Live</div>
+            </header>
+
+            <div class="chat-board" id="chatMessages">
+                {% if messages %}
+                    {% for message in messages %}
+                    <article class="chat-bubble {% if message.sender_id == current_user.id %}is-own{% else %}is-other{% endif %}" data-message-id="{{ message.id }}">
+                        <div class="chat-bubble-inner">
+                            {% if message.message_type == 'image' and message.image_path %}
+                            <img
+                                src="{{ url_for('static', filename='uploads/chat/' + message.image_path) }}"
+                                alt="Chat image"
+                                class="chat-image"
+                            >
+                            {% endif %}
+                            {% if message.content %}
+                            <p class="chat-text">{{ message.content }}</p>
+                            {% endif %}
+                        </div>
+                        <div class="chat-meta">
+                            <span>{{ message.created_at.strftime('%H:%M') if message.created_at else '' }}</span>
+                        </div>
+                    </article>
+                    {% endfor %}
+                {% else %}
+                    <div class="chat-empty" id="chatEmptyState">
+                        <div class="chat-empty-icon">✉️</div>
+                        <p>No messages yet. Start the chat.</p>
+                    </div>
+                {% endif %}
             </div>
-        </div>
-    </div>
-    
-    <div class="chat-messages" id="chatMessages">
-        {% if messages %}
-            {% for message in messages %}
-            <div class="chat-message {% if message.sender_id == current_user.id %}sent{% else %}received{% endif %}">
-                <div class="message-content">
-                    {% if message.message_type == 'image' and message.image_path %}
-                    <img src="{{ url_for('static', filename='uploads/chat/' + message.image_path) }}" 
-                         alt="Image" 
-                         class="chat-image"
-                         onclick="window.open(this.src, '_blank')">
-                    {% endif %}
-                    {% if message.content %}
-                    <p>{{ message.content }}</p>
-                    {% endif %}
+
+            <form method="POST" enctype="multipart/form-data" id="chatForm" class="chat-composer">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="chat-preview hidden" id="imagePreview"></div>
+                <div class="chat-composer-row">
+                    <label class="chat-tool-btn" for="imageInput" title="Send image">
+                        IMG
+                    </label>
+                    <input type="file" id="imageInput" name="image" accept="image/*" class="chat-hidden-input">
+                    <textarea
+                        name="message"
+                        id="messageInput"
+                        class="chat-textarea"
+                        placeholder="Write a message..."
+                        rows="1"
+                    ></textarea>
+                    <button type="submit" class="px-btn px-btn-primary chat-send-btn">Send</button>
                 </div>
-                <span class="message-time">{{ message.created_at.strftime('%H:%M') if message.created_at else '' }}</span>
-            </div>
-            {% endfor %}
-        {% else %}
-            <div class="chat-empty">
-                <p>No messages yet. Start the conversation!</p>
-            </div>
-        {% endif %}
-    </div>
-    
-    <div class="chat-input-area">
-        <form method="POST" action="{{ url_for('merch.send_message', conversation_id=conversation.id) }}" 
-              enctype="multipart/form-data" 
-              id="chatForm"
-              class="chat-form">
-            <div class="chat-input-row">
-                <label class="chat-image-btn" for="imageInput">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                        <circle cx="8.5" cy="8.5" r="1.5"/>
-                        <polyline points="21 15 16 10 5 21"/>
-                    </svg>
-                </label>
-                <input type="file" id="imageInput" name="image" accept="image/*" class="hidden" onchange="previewImage(this)">
-                <input type="text" name="message" placeholder="Type a message..." class="chat-input" id="messageInput">
-                <button type="submit" class="px-btn px-btn-primary chat-send-btn">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="22" y1="2" x2="11" y2="13"/>
-                        <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-                    </svg>
-                </button>
-            </div>
-            <div id="imagePreview" class="image-preview hidden"></div>
-        </form>
+            </form>
+        </section>
     </div>
 </div>
 
 <style>
-.chat-container {
-    max-width: 600px;
+.chat-page {
+    max-width: 1160px;
     margin: 0 auto;
-    height: calc(100vh - 200px);
-    min-height: 500px;
-    display: flex;
-    flex-direction: column;
 }
 
-.chat-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+.chat-shell {
+    display: grid;
+    grid-template-columns: 280px minmax(0, 1fr);
+    min-height: calc(100vh - 180px);
+    background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(236,241,252,0.95));
+    box-shadow: 0 6px 0 rgba(63, 88, 138, 0.12);
+    overflow: hidden;
 }
 
-.chat-user-info {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.chat-messages {
-    flex: 1;
-    overflow-y: auto;
-    padding: 20px;
+.chat-sidebar {
+    border-right: 3px solid rgba(93, 132, 214, 0.16);
+    background: linear-gradient(180deg, rgba(246,249,255,0.98), rgba(227,235,250,0.92));
+    padding: 18px;
     display: flex;
     flex-direction: column;
     gap: 16px;
-    min-height: 300px;
+}
+
+.chat-back-btn {
+    width: 100%;
+    justify-content: center;
+}
+
+.chat-profile-card {
+    border: 3px solid rgba(93, 132, 214, 0.18);
+    background: rgba(255,255,255,0.82);
+    padding: 16px;
+    text-align: center;
+}
+
+.chat-profile-avatar {
+    width: 72px;
+    height: 72px;
+    margin: 0 auto 12px;
+    border: 3px solid var(--px-border);
+    background: linear-gradient(180deg, #f5dc7d, #dba43f);
+    color: #2d2414;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Press Start 2P', cursive;
+    font-size: 1.1rem;
+}
+
+.chat-profile-meta h1 {
+    margin: 0 0 8px;
+    font-size: 1rem;
+}
+
+.chat-sidebar-note {
+    border: 2px solid rgba(93, 132, 214, 0.15);
+    background: rgba(93, 132, 214, 0.06);
+    padding: 14px;
+}
+
+.chat-main {
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    min-width: 0;
+}
+
+.chat-topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 18px;
+    border-bottom: 3px solid rgba(93, 132, 214, 0.14);
+    background: rgba(255,255,255,0.72);
+}
+
+.chat-topbar-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--px-blue);
+    margin-bottom: 4px;
+}
+
+.chat-topbar-name {
+    font-family: 'Press Start 2P', cursive;
+    font-size: 0.62rem;
+}
+
+.chat-topbar-status {
+    border: 2px solid rgba(111, 181, 101, 0.24);
+    background: rgba(111, 181, 101, 0.12);
+    color: #2a6a25;
+    padding: 8px 12px;
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+
+.chat-board {
+    padding: 18px;
+    overflow-y: auto;
+    background:
+        linear-gradient(transparent 23px, rgba(93, 132, 214, 0.035) 24px),
+        linear-gradient(90deg, transparent 23px, rgba(93, 132, 214, 0.025) 24px),
+        linear-gradient(180deg, rgba(250,252,255,0.95), rgba(236,241,252,0.95));
+    background-size: 24px 24px, 24px 24px, auto;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
 }
 
 .chat-empty {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
+    margin: auto;
+    text-align: center;
     color: var(--px-text-muted);
 }
 
-.chat-message {
-    max-width: 75%;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
+.chat-empty-icon {
+    font-size: 3rem;
+    margin-bottom: 10px;
 }
 
-.chat-message.sent {
+.chat-bubble {
+    display: flex;
+    flex-direction: column;
+    max-width: min(78%, 520px);
+}
+
+.chat-bubble.is-own {
     align-self: flex-end;
 }
 
-.chat-message.received {
+.chat-bubble.is-other {
     align-self: flex-start;
 }
 
-.message-content {
-    padding: 12px 16px;
-    border-radius: 16px;
-    word-wrap: break-word;
+.chat-bubble-inner {
+    border: 3px solid var(--px-border);
+    padding: 12px 14px;
+    box-shadow: 3px 3px 0 rgba(63, 88, 138, 0.12);
 }
 
-.chat-message.sent .message-content {
-    background: linear-gradient(135deg, var(--px-gold) 0%, var(--px-orange) 100%);
-    color: #000;
-    border-bottom-right-radius: 4px;
+.chat-bubble.is-own .chat-bubble-inner {
+    background: linear-gradient(180deg, #ffe49a, #f1c566);
+    color: #2c220f;
 }
 
-.chat-message.received .message-content {
-    background: var(--px-bg-dark);
-    color: var(--px-text);
-    border-bottom-left-radius: 4px;
+.chat-bubble.is-other .chat-bubble-inner {
+    background: linear-gradient(180deg, #ffffff, #edf2fd);
 }
 
-.message-content p {
+.chat-text {
     margin: 0;
     line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
 }
 
 .chat-image {
-    max-width: 200px;
-    max-height: 200px;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: transform 0.2s;
+    display: block;
+    width: min(100%, 240px);
+    max-height: 240px;
+    object-fit: cover;
+    border: 2px solid rgba(63, 88, 138, 0.16);
+    margin-bottom: 10px;
 }
 
-.chat-image:hover {
-    transform: scale(1.05);
-}
-
-.message-time {
-    font-size: 0.7rem;
+.chat-meta {
+    font-size: 0.68rem;
     color: var(--px-text-muted);
+    margin-top: 4px;
     padding: 0 4px;
 }
 
-.chat-input-area {
-    padding: 16px;
-    border-top: 2px solid var(--px-border);
-    background: var(--px-bg-primary);
+.chat-bubble.is-own .chat-meta {
+    text-align: right;
 }
 
-.chat-form {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+.chat-composer {
+    border-top: 3px solid rgba(93, 132, 214, 0.14);
+    background: rgba(255,255,255,0.84);
+    padding: 14px 18px 18px;
 }
 
-.chat-input-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+.chat-preview {
+    margin-bottom: 12px;
+    padding: 10px;
+    border: 2px solid rgba(93, 132, 214, 0.16);
+    background: rgba(93, 132, 214, 0.06);
 }
 
-.chat-image-btn {
-    width: 40px;
-    height: 40px;
-    display: flex;
+.chat-preview img {
+    width: 88px;
+    height: 88px;
+    object-fit: cover;
+    border: 2px solid var(--px-border);
+}
+
+.chat-preview-remove {
+    display: inline-block;
+    margin-left: 12px;
+    color: #a13f33;
+    cursor: pointer;
+    font-weight: 700;
+}
+
+.chat-hidden-input {
+    display: none;
+}
+
+.chat-composer-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 10px;
+    align-items: end;
+}
+
+.chat-tool-btn {
+    min-width: 54px;
+    height: 46px;
+    border: 3px solid var(--px-border);
+    background: linear-gradient(180deg, #f4f7ff, #dfe8fb);
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    background: var(--px-bg-dark);
-    border-radius: 50%;
+    font-size: 0.76rem;
+    font-weight: 700;
+    color: var(--px-blue);
     cursor: pointer;
-    color: var(--px-text-muted);
-    transition: all 0.2s;
 }
 
-.chat-image-btn:hover {
-    background: var(--px-gold);
-    color: #000;
-}
-
-.chat-input {
-    flex: 1;
-    padding: 12px 16px;
-    border: 2px solid var(--px-border);
-    border-radius: 24px;
-    background: var(--px-bg-dark);
+.chat-textarea {
+    min-height: 46px;
+    max-height: 140px;
+    resize: none;
+    border: 3px solid var(--px-border);
+    background: rgba(255,255,255,0.98);
     color: var(--px-text);
-    font-size: 0.95rem;
+    padding: 10px 12px;
+    font: inherit;
+    line-height: 1.4;
 }
 
-.chat-input:focus {
+.chat-textarea:focus {
     outline: none;
-    border-color: var(--px-gold);
+    border-color: rgba(93, 132, 214, 0.4);
 }
 
 .chat-send-btn {
-    width: 40px;
-    height: 40px;
-    padding: 0;
-    display: flex;
-    align-items: center;
+    min-width: 92px;
+    height: 46px;
     justify-content: center;
-    border-radius: 50%;
 }
 
 .hidden {
     display: none !important;
 }
 
-.image-preview {
-    padding: 8px;
-    background: var(--px-bg-dark);
-    border-radius: 8px;
-    position: relative;
-}
-
-.image-preview img {
-    max-width: 100px;
-    max-height: 100px;
-    border-radius: 8px;
-}
-
-.image-preview .remove-btn {
-    position: absolute;
-    top: -8px;
-    right: -8px;
-    width: 20px;
-    height: 20px;
-    background: #cc0000;
-    color: #fff;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    font-size: 12px;
-}
-
-/* Scrollbar styling */
-.chat-messages::-webkit-scrollbar {
-    width: 6px;
-}
-
-.chat-messages::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.chat-messages::-webkit-scrollbar-thumb {
-    background: var(--px-border);
-    border-radius: 3px;
-}
-
-@media (max-width: 600px) {
-    .chat-container {
-        height: calc(100vh - 150px);
+@media (max-width: 900px) {
+    .chat-shell {
+        grid-template-columns: 1fr;
+        min-height: calc(100vh - 140px);
     }
-    
-    .chat-message {
-        max-width: 85%;
+
+    .chat-sidebar {
+        border-right: 0;
+        border-bottom: 3px solid rgba(93, 132, 214, 0.14);
+    }
+}
+
+@media (max-width: 640px) {
+    .chat-page {
+        margin-inline: -4px;
+    }
+
+    .chat-board,
+    .chat-composer,
+    .chat-topbar,
+    .chat-sidebar {
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+
+    .chat-bubble {
+        max-width: 88%;
+    }
+
+    .chat-composer-row {
+        grid-template-columns: 46px 1fr 74px;
+    }
+
+    .chat-send-btn {
+        min-width: 74px;
+        font-size: 0.62rem;
     }
 }
 </style>
 
-<script>
-// Auto scroll to bottom
-document.addEventListener('DOMContentLoaded', function() {
-    const chatMessages = document.getElementById('chatMessages');
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-    
-    // Focus input
-    document.getElementById('messageInput').focus();
-});
-
-// Image preview
-function previewImage(input) {
-    const preview = document.getElementById('imagePreview');
-    preview.innerHTML = '';
-    
-    if (input.files && input.files[0]) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            preview.innerHTML = `
-                <img src="${e.target.result}" alt="Preview">
-                <span class="remove-btn" onclick="removeImage()">×</span>
-            `;
-            preview.classList.remove('hidden');
-        };
-        reader.readAsDataURL(input.files[0]);
-    }
-}
-
-function removeImage() {
-    document.getElementById('imageInput').value = '';
-    document.getElementById('imagePreview').innerHTML = '';
-    document.getElementById('imagePreview').classList.add('hidden');
-}
-
-// Auto-submit form when sending
-document.getElementById('chatForm').addEventListener('submit', function() {
-    const input = document.getElementById('messageInput');
-    const image = document.getElementById('imageInput');
-    
-    if (!input.value.trim() && (!image.files || !image.files[0])) {
-        return false;
-    }
-});
-</script>
+<script src="{{ asset_url('js/merch-chat.js') }}"></script>
 {% endblock %}
