@@ -102,6 +102,9 @@ def create_app(config_name=None):
 
     # Create/ensure schema in development-style environments.
     if app.config.get('AUTO_CREATE_SCHEMA_ON_START', True):
+        # Import models before create_all so SQLAlchemy knows every table.
+        from app import models as _models  # noqa: F401
+
         # Ensure database directory exists for SQLite
         if 'sqlite' in app.config['SQLALCHEMY_DATABASE_URI']:
             db_path = app.config['SQLALCHEMY_DATABASE_URI'].replace('sqlite:///', '')
@@ -120,6 +123,7 @@ def create_app(config_name=None):
 
             safe_schema_step('db.create_all', lambda: db.create_all())
             safe_schema_step('DepositService.ensure_deposit_schema', lambda: __import__('app.services.deposit_service', fromlist=['DepositService']).DepositService.ensure_deposit_schema())
+            safe_schema_step('MissionService.ensure_mission_schema', lambda: __import__('app.services.mission_service', fromlist=['MissionService']).MissionService.ensure_mission_schema())
             safe_schema_step('SellerService.ensure_seller_schema', lambda: __import__('app.services.seller_service', fromlist=['SellerService']).SellerService.ensure_seller_schema())
             safe_schema_step('NotificationService.ensure_notification_schema', lambda: __import__('app.services.notification_service', fromlist=['NotificationService']).NotificationService.ensure_notification_schema())
             safe_schema_step('MerchService.ensure_merch_schema', lambda: __import__('app.services.merch_service', fromlist=['MerchService']).MerchService.ensure_merch_schema())

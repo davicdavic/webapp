@@ -4,6 +4,7 @@ Business logic for mission management
 """
 from datetime import datetime, timedelta
 from flask import current_app
+from sqlalchemy import inspect, text
 from app.extensions import db, cache
 from app.models import Mission, UserMission, User
 from app.services.history_service import HistoryService
@@ -11,6 +12,25 @@ from app.services.history_service import HistoryService
 
 class MissionService:
     """Service for managing missions and submissions"""
+
+    @staticmethod
+    def ensure_mission_schema():
+        """Best-effort schema patching for mission-related fields."""
+        inspector = inspect(db.engine)
+        if 'missions' not in inspector.get_table_names():
+            return
+
+        mission_cols = {col['name'] for col in inspector.get_columns('missions')}
+        alter_statements = []
+
+        if 'image_path' not in mission_cols:
+            alter_statements.append('ALTER TABLE missions ADD COLUMN image_path VARCHAR(255)')
+
+        for statement in alter_statements:
+            db.session.execute(text(statement))
+
+        if alter_statements:
+            db.session.commit()
     
     @staticmethod
     @cache.cached(timeout=60, key_prefix='active_missions')
