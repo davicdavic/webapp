@@ -9,6 +9,9 @@ from flask_login import login_required, current_user
 from app.models import GameScore, User, EmperorMatchStat
 from app.extensions import db, cache
 from app.game_state import get_game_state, game_state_lock
+from app.route_modules.game_matchmaking import register_game_matchmaking_routes
+from app.services.game_wallet_service import GameWalletService
+from app.validators import ValidationError
 
 game_bp = Blueprint('game', __name__)
 
@@ -103,12 +106,16 @@ def _check_inactivity(room):
             # mark other player as winner by abandonment, refund if before round
             other = _other_player(room, uid)
             if room.get('status') == 'active' and not room.get('result'):
-                # refund bets
-                for pid in room['players']:
-                    u = User.query.get(pid)
-                    if u:
-                        u.coins += room['bet']
-                db.session.commit()
+                try:
+                    GameWalletService.refund_match_stakes(
+                        user_ids=list(room['players']),
+                        amount=room['bet'],
+                        room_id=room.get('id'),
+                        reason='disconnect_refund',
+                        commit=True,
+                    )
+                except ValidationError:
+                    db.session.rollback()
             room['status'] = 'terminated'
             room['termination_message'] = 'Opponent disconnected.'
             _save_room(room)
@@ -136,9 +143,20 @@ def _resolve_room_if_needed(room):
                 room['rematch_confirmed_at'] = None
                 _save_room(room)
                 return  # Insufficient balance, don't start
-            user_a.coins -= room['bet']
-            user_b.coins -= room['bet']
-            db.session.commit()
+            try:
+                GameWalletService.debit_match_stakes(
+                    user_ids=[uid_a, uid_b],
+                    amount=room['bet'],
+                    room_id=room.get('id'),
+                    commit=True,
+                )
+            except ValidationError:
+                db.session.rollback()
+                room['rematch_requests'] = set()
+                room['rematch_started_at'] = None
+                room['rematch_confirmed_at'] = None
+                _save_room(room)
+                return
             room['round'] += 1
             room['pot'] = room['bet'] * 2
             room['selections'] = {}
@@ -176,8 +194,12 @@ def _resolve_room_if_needed(room):
     if card_a and card_b:
         cmp_result = _compare_cards(card_a, card_b)
         if cmp_result == 0:
-            user_a.coins += room['bet']
-            user_b.coins += room['bet']
+            GameWalletService.refund_match_stakes(
+                user_ids=[uid_a, uid_b],
+                amount=room['bet'],
+                room_id=room.get('id'),
+                reason='draw_refund',
+            )
             result = {
                 'kind': 'draw',
                 'winner_id': None,
@@ -191,11 +213,16 @@ def _resolve_room_if_needed(room):
         else:
             winner_id = uid_a if cmp_result > 0 else uid_b
             loser_id = uid_b if winner_id == uid_a else uid_a
-            winner = user_a if winner_id == uid_a else user_b
-            fee_amount = (room['bet'] * PLATFORM_FEE_BPS) // 10000
-            winner_payout = room['pot'] - fee_amount
-            winner_net_gain = room['bet'] - fee_amount
-            winner.coins += winner_payout
+            payout_data = GameWalletService.payout_winner(
+                winner_id=winner_id,
+                loser_id=loser_id,
+                bet_amount=room['bet'],
+                platform_fee_bps=PLATFORM_FEE_BPS,
+                room_id=room.get('id'),
+            )
+            fee_amount = payout_data['fee_amount']
+            winner_payout = payout_data['payout']
+            winner_net_gain = payout_data['winner_net_gain']
             result = {
                 'kind': 'win',
                 'winner_id': winner_id,
@@ -209,8 +236,12 @@ def _resolve_room_if_needed(room):
     else:
         # Selection timeout behavior: if both cards were not submitted in time,
         # treat the round as draw and refund each player's own bet.
-        user_a.coins += room['bet']
-        user_b.coins += room['bet']
+        GameWalletService.refund_match_stakes(
+            user_ids=[uid_a, uid_b],
+            amount=room['bet'],
+            room_id=room.get('id'),
+            reason='timeout_refund',
+        )
         result = {
             'kind': 'draw_timeout',
             'winner_id': None,
@@ -364,423 +395,24 @@ def emperors_circle():
 
 
 
-@game_bp.route('/join-queue', methods=['POST'])
-
-
-
-@login_required
-def join_queue():
-    """Join exact-stake queue. Match pays both bets immediately."""
-    amount = request.form.get('bet', type=int)
-    if amount not in ALLOWED_BETS:
-        return jsonify({'success': False, 'message': 'Invalid bet amount'}), 400
-
-    with game_state_lock():
-        user_id = current_user.id
-        user = User.query.get(user_id)
-        if not user:
-            return jsonify({'success': False, 'message': 'User not found'}), 404
-
-        room_id, room = _get_room_for_user(user_id)
-        if room_id and room:
-            _resolve_room_if_needed(room)
-            payload = _room_payload(user_id, room)
-            return jsonify({'success': True, **payload})
-
-        _remove_from_queue(user_id)
-
-        if user.coins < amount:
-            return jsonify({'success': False, 'message': 'Not enough balance for this stake'}), 400
-
-        while True:
-            opp_id = _state().queue_pop(amount)
-            if opp_id is None:
-                break
-            _state().pop_user_queue_bet(opp_id)
-            if opp_id == user_id:
-                continue
-            if _get_room_for_user(opp_id)[0]:
-                continue
-
-            opponent = User.query.get(opp_id)
-            if not opponent:
-                continue
-            if opponent.coins < amount:
-                continue
-
-            # Immediate pay-in when match is created.
-            user.coins -= amount
-            opponent.coins -= amount
-            db.session.commit()
-
-            new_room_id = uuid.uuid4().hex[:12]
-            now = time.time()
-            new_room = {
-                'id': new_room_id,
-                'players': [user_id, opp_id],
-                'bet': amount,
-                'pot': amount * 2,
-                'round': 1,
-                'selections': {},
-                'deadline': now + ROUND_SECONDS,
-                'result': None,
-                'status': 'active',
-                'rematch_requests': set(),
-                'rematch_started_at': None,
-                'rematch_expired_at': None,
-                'created_at': int(now),
-                'last_seen': {user_id: now, opp_id: now}
-            }
-            _state().set_room(new_room_id, new_room)
-            _state().set_user_room(user_id, new_room_id)
-            _state().set_user_room(opp_id, new_room_id)
-
-            payload = _room_payload(user_id, new_room)
-            return jsonify({'success': True, **payload})
-
-        _state().queue_push(amount, user_id)
-        _state().set_user_queue_bet(user_id, amount)
-        return jsonify({'success': True, 'status': 'waiting', 'bet': amount})
-
-
-@game_bp.route('/queue-status')
-
-@login_required
-def queue_status():
-    """Poll queue and matchmaking state."""
-    with game_state_lock():
-        user_id = current_user.id
-        room_id, room = _get_room_for_user(user_id)
-        if room_id and room:
-            _resolve_room_if_needed(room)
-            _expire_rematch_if_needed(room)
-            payload = _room_payload(user_id, room)
-            if payload['status'] == 'opponent_left':
-                _cleanup_room(room_id)
-            return jsonify({'success': True, **payload})
-
-        queued_bet = _state().get_user_queue_bet(user_id)
-        if queued_bet is not None:
-            return jsonify({'success': True, 'status': 'waiting', 'bet': queued_bet})
-
-        return jsonify({'success': True, 'status': 'idle'})
-
-
-@game_bp.route('/round-status')
-
-@login_required
-def round_status():
-    """Poll in-room game state and resolve timeout when needed."""
-    with game_state_lock():
-        user_id = current_user.id
-        room_id, room = _get_room_for_user(user_id)
-        if not room_id or not room:
-            return jsonify({'success': True, 'status': 'idle'})
-
-        _resolve_room_if_needed(room)
-        _expire_rematch_if_needed(room)
-        payload = _room_payload(user_id, room)
-        if payload['status'] == 'opponent_left':
-            _cleanup_room(room_id)
-        return jsonify({'success': True, **payload})
-
-
-@game_bp.route('/select-card', methods=['POST'])
-
-@login_required
-def select_card():
-    """Submit chosen card for the active room."""
-    card = (request.form.get('card') or '').strip().lower()
-    if card not in VALID_CARDS:
-        return jsonify({'success': False, 'message': 'Invalid card'}), 400
-
-    with game_state_lock():
-        user_id = current_user.id
-        room_id, room = _get_room_for_user(user_id)
-        if not room_id or not room:
-            return jsonify({'success': False, 'message': 'No active room'}), 400
-        if room.get('status') != 'active':
-            payload = _room_payload(user_id, room)
-            return jsonify({'success': True, **payload})
-
-        # Prevent changing card if already selected in this round
-        if user_id in room['selections']:
-            return jsonify({'success': False, 'message': 'You already selected a card. Cannot change it.'}), 400
-
-        room['selections'][user_id] = card
-        _save_room(room)
-        _resolve_room_if_needed(room)
-        payload = _room_payload(user_id, room)
-        return jsonify({'success': True, **payload})
-
-
-@game_bp.route('/rematch', methods=['POST'])
-
-@login_required
-def rematch():
-    """Request rematch; start next round when both agree and can pay."""
-    with game_state_lock():
-        user_id = current_user.id
-        room_id, room = _get_room_for_user(user_id)
-        if not room_id or not room:
-            return jsonify({'success': False, 'message': 'No active room'}), 400
-        if room.get('status') == 'terminated':
-            return jsonify({'success': False, 'message': 'Room already closed'}), 400
-
-        # If user already requested rematch, return current status instead of erroring
-        if user_id in room.get('rematch_requests', set()):
-            payload = _room_payload(user_id, room)
-            return jsonify({'success': True, **payload})
-
-        if not room.get('result'):
-            return jsonify({'success': False, 'message': 'Round not finished yet'}), 400
-
-        # Check balance before allowing rematch request
-        user = User.query.get(user_id)
-        if not user or user.coins < room['bet']:
-            return jsonify({'success': False, 'message': 'Insufficient balance for rematch'}), 400
-
-        _expire_rematch_if_needed(room)
-        now = time.time()
-        if not room.get('rematch_requests'):
-            room['rematch_started_at'] = now
-            room['rematch_expired_at'] = None
-
-        room['rematch_requests'].add(user_id)
-        _save_room(room)
-        seconds_left = max(0, REMATCH_WINDOW_SECONDS - int(time.time() - room['rematch_started_at']))
-        if len(room['rematch_requests']) < 2:
-            return jsonify({'success': True, 'status': 'waiting_rematch', 'rematch_seconds_left': seconds_left})
-
-        if time.time() - room['rematch_started_at'] > REMATCH_WINDOW_SECONDS:
-            room['rematch_requests'] = set()
-            room['rematch_started_at'] = None
-            room['rematch_expired_at'] = int(time.time())
-            _save_room(room)
-            return jsonify({
-                'success': True,
-                'status': 'rematch_expired',
-                'message': 'Rematch expired. Both players must press Rematch within 60 seconds.'
-            })
-
-        # Both agreed, set confirmed time for 4-second delay before starting
-        room['rematch_confirmed_at'] = time.time()
-        _save_room(room)
-        payload = _room_payload(user_id, room)
-        return jsonify({'success': True, **payload})
-
-
-@game_bp.route('/leave-queue', methods=['POST'])
-
-@login_required
-def leave_queue():
-    """Leave queue or active room."""
-    with game_state_lock():
-        user_id = current_user.id
-        _remove_from_queue(user_id)
-
-        room_id, room = _get_room_for_user(user_id)
-        if not room_id or not room:
-            return jsonify({'success': True})
-
-        opp_id = _other_player(room, user_id)
-        if room.get('status') == 'active' and not room.get('result'):
-            # If someone leaves mid-round, refund current round stake to both players.
-            for uid in room['players']:
-                u = User.query.get(uid)
-                if u:
-                    u.coins += room['bet']
-            db.session.commit()
-
-            room['status'] = 'terminated'
-            room['termination_message'] = 'Opponent left the game.'
-            _state().pop_user_room(user_id)
-            if _state().get_user_room(opp_id) != room_id:
-                _cleanup_room(room_id)
-            else:
-                _save_room(room)
-            return jsonify({'success': True})
-
-        # Leaving after result/idle: remove this player mapping and mark room as terminated
-        # so opponent sees opponent_left status
-        room['status'] = 'terminated'
-        room['termination_message'] = 'Opponent left the game.'
-        _state().pop_user_room(user_id)
-        if _state().get_user_room(opp_id) != room_id:
-            _cleanup_room(room_id)
-        else:
-            _save_room(room)
-        return jsonify({'success': True})
-
-
-
-@game_bp.route('/game-state')
-
-
-@login_required
-def game_state():
-    """Get current game state for polling."""
-    with game_state_lock():
-        user_id = current_user.id
-        user = User.query.get(user_id)
-        
-        # First check if in queue
-        queued_bet = _state().get_user_queue_bet(user_id)
-        if queued_bet is not None:
-            return jsonify({
-                'success': True,
-                'status': 'waiting',
-                'bet': queued_bet,
-                'balance': user.coins if user else 0
-            })
-        
-        # Check if in a room
-        room_id, room = _get_room_for_user(user_id)
-        if room_id and room:
-            _resolve_room_if_needed(room)
-            _expire_rematch_if_needed(room)
-            payload = _room_payload(user_id, room)
-            payload['balance'] = user.coins if user else 0
-            if payload['status'] == 'opponent_left':
-                _cleanup_room(room_id)
-            return jsonify({'success': True, **payload})
-        
-        return jsonify({
-            'success': True,
-            'status': 'idle',
-            'balance': user.coins if user else 0
-        })
-
-
-@game_bp.route('/respond-rematch', methods=['POST'])
-
-@login_required
-def respond_rematch():
-    """Respond to rematch offer."""
-    accept = request.form.get('accept', 'false').lower() == 'true'
-    
-    with game_state_lock():
-        user_id = current_user.id
-        room_id, room = _get_room_for_user(user_id)
-        
-        if not room_id or not room:
-            return jsonify({'success': False, 'message': 'No active room'}), 400
-        
-        if not room.get('result'):
-            return jsonify({'success': False, 'message': 'Round not finished'}), 400
-        
-        user = User.query.get(user_id)
-        if not user:
-            return jsonify({'success': False, 'message': 'User not found'}), 400
-        
-        if not accept:
-            # User declined rematch - clear requests and end round
-            room['rematch_requests'] = set()
-            room['rematch_started_at'] = None
-            _save_room(room)
-            payload = _room_payload(user_id, room)
-            return jsonify({'success': True, **payload})
-        
-        # User accepted - check balance
-        if user.coins < room['bet']:
-            return jsonify({'success': False, 'message': 'Insufficient balance for rematch'}), 400
-        
-        _expire_rematch_if_needed(room)
-        
-        # Add this user to rematch requests
-        if not room.get('rematch_requests'):
-            room['rematch_started_at'] = time.time()
-        
-        room['rematch_requests'].add(user_id)
-        
-        # Check if both agreed
-        if len(room['rematch_requests']) >= 2:
-            # Both confirmed - set delay before starting
-            room['rematch_confirmed_at'] = time.time()
-        
-        _save_room(room)
-        payload = _room_payload(user_id, room)
-        return jsonify({'success': True, **payload})
-
-
-@game_bp.route('/leave-game', methods=['POST'])
-
-@login_required
-def leave_game():
-    """Leave current game and return to lobby."""
-    return leave_queue()
-
-
-@game_bp.route('/new-match-same-opponent', methods=['POST'])
-
-@login_required
-def new_match_same_opponent():
-    """Start a NEW match with the SAME opponent (deducts real TNNO)."""
-    with game_state_lock():
-        user_id = current_user.id
-        user = User.query.get(user_id)
-        
-        if not user:
-            return jsonify({'success': False, 'message': 'User not found'}), 404
-        
-        # Get current room
-        room_id, room = _get_room_for_user(user_id)
-        if not room_id or not room:
-            return jsonify({'success': False, 'message': 'No active room'}), 400
-        
-        # Get opponent
-        opp_id = _other_player(room, user_id)
-        opponent = User.query.get(opp_id)
-        
-        if not opponent:
-            return jsonify({'success': False, 'message': 'Opponent not found'}), 404
-        
-        bet_amount = room['bet']
-        
-        # Check both players have enough TNNO
-        if user.coins < bet_amount:
-            return jsonify({'success': False, 'message': 'Insufficient balance'}), 400
-        
-        if opponent.coins < bet_amount:
-            return jsonify({'success': False, 'message': 'Opponent has insufficient balance'}), 400
-        
-        # Clean up current room
-        room['status'] = 'terminated'
-        room['termination_message'] = 'Starting new match.'
-        _state().pop_user_room(user_id)
-        _state().pop_user_room(opp_id)
-        _cleanup_room(room_id)
-        
-        # Deduct TNNO for new match
-        user.coins -= bet_amount
-        opponent.coins -= bet_amount
-        db.session.commit()
-        
-        # Create new room with same opponent
-        new_room_id = uuid.uuid4().hex[:12]
-        now = time.time()
-        new_room = {
-            'id': new_room_id,
-            'players': [user_id, opp_id],
-            'bet': bet_amount,
-            'pot': bet_amount * 2,
-            'round': 1,
-            'selections': {},
-            'deadline': now + ROUND_SECONDS,
-            'result': None,
-            'status': 'active',
-            'rematch_requests': set(),
-                'rematch_started_at': None,
-                'rematch_expired_at': None,
-                'created_at': int(now),
-                'last_seen': {user_id: now, opp_id: now}
-        }
-        _state().set_room(new_room_id, new_room)
-        _state().set_user_room(user_id, new_room_id)
-        _state().set_user_room(opp_id, new_room_id)
-        
-        payload = _room_payload(user_id, new_room)
-        return jsonify({'success': True, **payload})
+register_game_matchmaking_routes(
+    game_bp,
+    allowed_bets=ALLOWED_BETS,
+    valid_cards=VALID_CARDS,
+    round_seconds=ROUND_SECONDS,
+    rematch_window_seconds=REMATCH_WINDOW_SECONDS,
+    rematch_start_delay_seconds=REMATCH_START_DELAY_SECONDS,
+    game_state_lock=game_state_lock,
+    state_fn=_state,
+    get_room_for_user_fn=_get_room_for_user,
+    resolve_room_if_needed_fn=_resolve_room_if_needed,
+    room_payload_fn=_room_payload,
+    remove_from_queue_fn=_remove_from_queue,
+    other_player_fn=_other_player,
+    expire_rematch_if_needed_fn=_expire_rematch_if_needed,
+    save_room_fn=_save_room,
+    cleanup_room_fn=_cleanup_room,
+)
 
 
 @game_bp.route('/save-score', methods=['POST'])

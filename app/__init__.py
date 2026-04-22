@@ -5,8 +5,11 @@ Create and configure the Flask application with all blueprints and extensions
 import os
 from flask import Flask, make_response, jsonify, flash, request, redirect, url_for
 from sqlalchemy import text
+from werkzeug.middleware.proxy_fix import ProxyFix
 from app.config import config
-from app.extensions import init_extensions, db, login_manager
+from app.extensions import init_extensions, verify_database_connection, db, login_manager
+from app.datetime_utils import utc_now
+from app.services.cloudinary_service import CloudinaryService
 from app.game_state import init_game_state
 
 
@@ -29,6 +32,16 @@ def create_app(config_name=None):
     # Load configuration
     app.config.from_object(config.get(config_name, config['development']))
 
+    if app.config.get('TRUST_PROXY_HEADERS'):
+        proxy_hops = int(app.config.get('TRUSTED_PROXY_HOPS', 1))
+        app.wsgi_app = ProxyFix(
+            app.wsgi_app,
+            x_for=proxy_hops,
+            x_proto=proxy_hops,
+            x_host=proxy_hops,
+            x_port=proxy_hops,
+        )
+
     if config_name == 'production':
         missing_env = [
             name for name in (
@@ -44,6 +57,8 @@ def create_app(config_name=None):
 
     # Initialize extensions
     init_extensions(app)
+    verify_database_connection(app)
+    CloudinaryService.init_app(app)
     init_game_state(app)
 
     if config_name == 'production':
@@ -69,7 +84,11 @@ def create_app(config_name=None):
 
     @app.get('/healthz')
     def healthz():
-        return jsonify({'status': 'ok'}), 200
+        return jsonify({
+            'status': 'ok',
+            'environment': config_name,
+            'database': 'ready',
+        }), 200
 
     # Add aggressive caching headers for maximum speed
     @app.after_request
@@ -171,31 +190,14 @@ def create_app(config_name=None):
 
 def register_blueprints(app):
     """Register all Flask blueprints"""
-    from app.routes.auth import auth_bp
-    from app.routes.missions import missions_bp
-    from app.routes.deposit import nowpayments_bp, deposit_bp
-    from app.routes.feed import feed_bp
-    from app.routes.admin import admin_bp
-    from app.routes.profile import profile_bp
-    from app.routes.work import work_bp
-    from app.routes.api import api_bp
-    from app.routes.game import game_bp
-    from app.routes.merch import merch_bp
-    from app.routes.history import history_bp
+    from app.blueprints import get_blueprints
 
-    # Register blueprints with URL prefixes
-    app.register_blueprint(auth_bp)
-    app.register_blueprint(missions_bp, url_prefix='/missions')
-    app.register_blueprint(deposit_bp, url_prefix='/deposit')
-    app.register_blueprint(nowpayments_bp)
-    app.register_blueprint(feed_bp, url_prefix='/feed')
-    app.register_blueprint(admin_bp, url_prefix='/admin')
-    app.register_blueprint(profile_bp, url_prefix='/profile')
-    app.register_blueprint(work_bp, url_prefix='/work')
-    app.register_blueprint(api_bp, url_prefix='/api')
-    app.register_blueprint(game_bp, url_prefix='/game')
-    app.register_blueprint(merch_bp, url_prefix='/store')
-    app.register_blueprint(history_bp)
+    for domain_blueprints in get_blueprints().values():
+        for blueprint, url_prefix in domain_blueprints:
+            if url_prefix:
+                app.register_blueprint(blueprint, url_prefix=url_prefix)
+            else:
+                app.register_blueprint(blueprint)
 
 
 def register_error_handlers(app):
@@ -262,7 +264,7 @@ def register_context_processors(app):
             if request.endpoint in {'static', 'healthz'}:
                 return
 
-            now = datetime.utcnow()
+            now = utc_now()
             if expires_at <= now:
                 return
 
@@ -470,12 +472,19 @@ def ensure_runtime_indexes():
     from sqlalchemy import text
     db.session.execute(text('CREATE INDEX IF NOT EXISTS ix_users_coins ON users (coins)'))
     db.session.execute(text('CREATE INDEX IF NOT EXISTS ix_posts_parent_created ON posts (parent_id, created_at)'))
+    db.session.execute(text('CREATE INDEX IF NOT EXISTS ix_posts_user_created_at ON posts (user_id, created_at)'))
     db.session.execute(text('CREATE INDEX IF NOT EXISTS ix_user_missions_arch_created ON user_missions (is_archived, created_at)'))
     db.session.execute(text('CREATE INDEX IF NOT EXISTS ix_work_requests_arch_created ON work_requests (is_archived, created_at)'))
     db.session.execute(text('CREATE INDEX IF NOT EXISTS ix_service_orders_arch_created ON service_orders (is_archived, created_at)'))
     db.session.execute(text('CREATE INDEX IF NOT EXISTS ix_withdraw_requests_arch_created ON withdraw_requests (is_archived, created_at)'))
+    db.session.execute(text('CREATE INDEX IF NOT EXISTS ix_withdraw_requests_user_status_created ON withdraw_requests (user_id, status, created_at)'))
     db.session.execute(text('CREATE INDEX IF NOT EXISTS ix_deposits_arch_created ON deposits (is_archived, created_at)'))
     db.session.execute(text('CREATE INDEX IF NOT EXISTS ix_merch_orders_arch_created ON merch_orders (is_archived, created_at)'))
+    db.session.execute(text('CREATE INDEX IF NOT EXISTS ix_merch_orders_user_created_at ON merch_orders (user_id, created_at)'))
+    db.session.execute(text('CREATE INDEX IF NOT EXISTS ix_user_notifications_user_read_created ON user_notifications (user_id, read_at, created_at)'))
+    db.session.execute(text('CREATE INDEX IF NOT EXISTS ix_seller_notifications_seller_read_created ON seller_notifications (seller_id, is_read, created_at)'))
+    db.session.execute(text('CREATE INDEX IF NOT EXISTS ix_seller_chat_messages_conversation_created ON seller_chat_messages (conversation_id, created_at)'))
+    db.session.execute(text('CREATE INDEX IF NOT EXISTS ix_wallet_transactions_user_created ON wallet_transactions (user_id, created_at)'))
     db.session.commit()
 
 

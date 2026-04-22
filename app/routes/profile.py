@@ -10,7 +10,11 @@ from app.extensions import db, cache
 from app.models import User, SellerRequest, SellerRating, Product, MerchOrder, UserNotification, SellerNotification, SellerChatConversation, SellerChatMessage
 from app.services import UserService
 from app.services.seller_service import SellerService, SELLER_PLANS
+from app.services.pagination_service import PaginationService
+from app.services.wallet_service import WalletService
+from app.datetime_utils import utc_now
 from app.utils import save_uploaded_file, save_uploaded_image_optimized
+from app.validators import ValidationError
 
 profile_bp = Blueprint('profile', __name__)
 
@@ -235,10 +239,13 @@ def settings():
 @login_required
 def notifications():
     """User notifications."""
+    params = PaginationService.get_page_args(request.args.get('page', 1, type=int), 20)
     user_rows = UserNotification.query.filter_by(user_id=current_user.id)\
-        .order_by(UserNotification.created_at.desc()).all()
+        .order_by(UserNotification.created_at.desc(), UserNotification.id.desc())\
+        .limit(params.per_page).all()
     seller_rows = SellerNotification.query.filter_by(seller_id=current_user.id)\
-        .order_by(SellerNotification.created_at.desc()).all()
+        .order_by(SellerNotification.created_at.desc(), SellerNotification.id.desc())\
+        .limit(params.per_page).all()
 
     rows = sorted(
         [{'kind': 'user', 'row': n, 'created_at': n.created_at} for n in user_rows] +
@@ -247,14 +254,12 @@ def notifications():
         reverse=True
     )
 
-    unread = UserNotification.query.filter_by(user_id=current_user.id, read_at=None).all()
-    seller_unread = SellerNotification.query.filter_by(seller_id=current_user.id, is_read=False).all()
-    if unread or seller_unread:
-        now = datetime.utcnow()
-        for n in unread:
-            n.read_at = now
-        for n in seller_unread:
-            n.is_read = True
+    unread_count = UserNotification.query.filter_by(user_id=current_user.id, read_at=None).count()
+    seller_unread_count = SellerNotification.query.filter_by(seller_id=current_user.id, is_read=False).count()
+    if unread_count or seller_unread_count:
+        now = utc_now()
+        UserNotification.query.filter_by(user_id=current_user.id, read_at=None).update({'read_at': now})
+        SellerNotification.query.filter_by(seller_id=current_user.id, is_read=False).update({'is_read': True})
         db.session.commit()
         cache.delete(f'profile_index_{current_user.id}')
     return render_template('profile/notifications.html', notifications=rows)
@@ -309,32 +314,47 @@ def seller_request():
         return redirect(url_for('profile.settings'))
 
     cost = int(plan['cost'])
-    if current_user.coins < cost:
+    try:
+        WalletService.debit_user(
+            user_id=current_user.id,
+            amount=cost,
+            transaction_type='seller_request_fee',
+            details=plan_key,
+        )
+
+        new_request = SellerRequest(
+            user_id=current_user.id,
+            real_name=real_name,
+            country=country,
+            city=city,
+            phone=phone,
+            product_description=product_description,
+            id_front_path=id_front_path,
+            id_back_path=id_back_path,
+            location_text=location_text or None,
+            location_lat=location_lat,
+            location_lng=location_lng,
+            plan_key=plan_key,
+            plan_months=int(plan['months']),
+            plan_cost=cost,
+            status='pending'
+        )
+        db.session.add(new_request)
+        db.session.flush()
+        WalletService.record_transaction(
+            user_id=current_user.id,
+            amount=0,
+            transaction_type='seller_request_created',
+            status='pending',
+            reference_type='seller_request',
+            reference_id=new_request.id,
+            details=plan_key,
+        )
+        db.session.commit()
+    except ValidationError:
+        db.session.rollback()
         flash(f'Insufficient TNNO. Need {cost:,}, you have {int(current_user.coins):,}.', 'error')
         return redirect(url_for('profile.settings'))
-
-    # Charge plan cost at request time; refund if rejected.
-    current_user.coins -= cost
-
-    new_request = SellerRequest(
-        user_id=current_user.id,
-        real_name=real_name,
-        country=country,
-        city=city,
-        phone=phone,
-        product_description=product_description,
-        id_front_path=id_front_path,
-        id_back_path=id_back_path,
-        location_text=location_text or None,
-        location_lat=location_lat,
-        location_lng=location_lng,
-        plan_key=plan_key,
-        plan_months=int(plan['months']),
-        plan_cost=cost,
-        status='pending'
-    )
-    db.session.add(new_request)
-    db.session.commit()
 
     flash('Seller request submitted. Plan fee charged. Admin will review it soon.', 'success')
     return redirect(url_for('profile.settings'))
@@ -355,17 +375,23 @@ def seller_plan():
         return redirect(request.referrer or url_for('profile.settings'))
 
     cost = int(plan['cost'])
-    if current_user.coins < cost:
+    try:
+        user = WalletService.debit_user(
+            user_id=current_user.id,
+            amount=cost,
+            transaction_type='seller_plan_purchase',
+            details=plan_key,
+        )
+        user.is_seller = True
+        user.seller_expires_at = SellerService.compute_new_expiry(
+            user.seller_expires_at,
+            plan['months']
+        )
+        db.session.commit()
+    except ValidationError:
+        db.session.rollback()
         flash(f'Insufficient TNNO. Need {cost:,}, you have {int(current_user.coins):,}.', 'error')
         return redirect(request.referrer or url_for('profile.settings'))
-
-    current_user.coins -= cost
-    current_user.is_seller = True
-    current_user.seller_expires_at = SellerService.compute_new_expiry(
-        current_user.seller_expires_at,
-        plan['months']
-    )
-    db.session.commit()
 
     flash('Seller plan activated successfully!', 'success')
     return redirect(request.referrer or url_for('profile.settings'))

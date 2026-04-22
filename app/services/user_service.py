@@ -3,9 +3,13 @@ User Service
 Business logic for user management
 """
 from flask import current_app
+from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
+
 from app.extensions import db
 from app.models import User, GameScore
 from app.utils import generate_unique_6digit_id
+from app.validators import ValidationError, validate_email, validate_password, validate_username
 
 
 class UserService:
@@ -14,44 +18,53 @@ class UserService:
     @staticmethod
     def create_user(username, password, email=None):
         """Create a new user"""
+        try:
+            username = validate_username(username)
+            password = validate_password(password)
+            email = validate_email(email)
+        except ValidationError as exc:
+            return None, str(exc)
+
         admin_username = current_app.config.get('ADMIN_USER', 'admin')
-        if username.strip().lower() in {admin_username.lower(), 'admin'}:
+        if username.lower() in {admin_username.lower(), 'admin'}:
             return None, "This username is reserved"
 
-        # Check if username exists
-        existing = User.query.filter_by(username=username).first()
+        existing = User.query.filter(func.lower(User.username) == username.lower()).first()
         if existing:
             return None, "Your username is already taken"
-        
-        # Check if email exists (if provided)
+
         if email:
-            existing = User.query.filter_by(email=email).first()
+            existing = User.query.filter(func.lower(User.email) == email.lower()).first()
             if existing:
                 return None, "Email already exists"
-        
-        # Create user
+
         user = User(
             username=username,
             email=email,
             user_6digit=generate_unique_6digit_id()
         )
         user.set_password(password)
-        
-        db.session.add(user)
-        db.session.commit()
-        
+
+        try:
+            db.session.add(user)
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+            return None, "Unable to create account right now. Please try again."
+
         return user, "User created successfully"
     
     @staticmethod
     def authenticate_user(username, password):
         """Authenticate user with username and password"""
-        user = User.query.filter_by(username=username).first()
+        username = (username or '').strip()
+        user = User.query.filter(func.lower(User.username) == username.lower()).first()
         
         if not user:
-            return None, "User not found"
+            return None, "Invalid username or password"
         
         if not user.check_password(password):
-            return None, "Password wrong"
+            return None, "Invalid username or password"
         
         return user, "Authentication successful"
     
@@ -63,7 +76,10 @@ class UserService:
     @staticmethod
     def get_user_by_username(username):
         """Get user by username"""
-        return User.query.filter_by(username=username).first()
+        username = (username or '').strip()
+        if not username:
+            return None
+        return User.query.filter(func.lower(User.username) == username.lower()).first()
     
     @staticmethod
     def get_user_by_6digit(user_6digit):

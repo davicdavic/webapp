@@ -105,6 +105,29 @@ Visit `http://localhost:5000` in your browser.
 
 ## Deployment
 
+### Render
+
+This repo now includes [render.yaml](/Users/davicjones1111/Downloads/A%200/render.yaml) for a production-style Render setup:
+
+- `retroquest-web` runs Gunicorn
+- `retroquest-worker` runs `python worker.py`
+- `retroquest-db` provisions PostgreSQL
+
+Recommended Render settings:
+
+- Keep `FLASK_ENV=production`
+- Keep `AUTO_CREATE_SCHEMA_ON_START=0`
+- Keep `START_BLOCKCHAIN_CHECKER=0` on the web service
+- Keep `START_BLOCKCHAIN_CHECKER=1` on the worker service
+- Set `TRUST_PROXY_HEADERS=1`
+- Set Cloudinary and NowPayments env vars if you use uploads/deposits
+
+Before first traffic, run migrations:
+
+```bash
+flask --app run.py db upgrade -d migrations
+```
+
 ### Production Stack (Recommended for High Concurrency)
 
 Use:
@@ -142,6 +165,7 @@ Important:
 - Run with `FLASK_ENV=production`.
 - Keep `START_BLOCKCHAIN_CHECKER=0` for web containers and `1` only on worker.
 - Keep `AUTO_CREATE_SCHEMA_ON_START=0` in production.
+- Enable trusted proxy handling behind Render or Nginx with `TRUST_PROXY_HEADERS=1`.
 
 ### Gunicorn Only (Single Host)
 

@@ -7,6 +7,7 @@ from flask_login import login_user, logout_user, login_required, current_user
 from app.extensions import db
 from app.models import User
 from app.services import UserService
+from app.validators import ValidationError, validate_password, validate_username
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -64,17 +65,11 @@ def signup():
         confirm_password = request.form.get('confirm_password', '')
         email = request.form.get('email', '').strip()
 
-        # Validation
-        if not username or not password:
-            flash('Username and password are required', 'error')
-            return render_template('auth/signup.html')
-
-        if len(username) < 3:
-            flash('Username must be at least 3 characters', 'error')
-            return render_template('auth/signup.html')
-
-        if len(password) < 6:
-            flash('Password must be at least 6 characters', 'error')
+        try:
+            validate_username(username)
+            validate_password(password)
+        except ValidationError as exc:
+            flash(str(exc), 'error')
             return render_template('auth/signup.html')
 
         if password != confirm_password:
@@ -121,14 +116,16 @@ def logout_get():
 def check_username():
     """Check if username is available"""
     username = request.form.get('username', '').strip()
-    if not username:
-        return jsonify({'available': False, 'message': 'Username is required'})
+    try:
+        username = validate_username(username)
+    except ValidationError as exc:
+        return jsonify({'available': False, 'message': str(exc)})
 
     admin_username = current_app.config.get('ADMIN_USER', 'admin')
     if username.lower() in {admin_username.lower(), 'admin'}:
         return jsonify({'available': False, 'message': 'This username is reserved'})
     
-    existing = User.query.filter_by(username=username).first()
+    existing = UserService.get_user_by_username(username)
     if existing:
         return jsonify({'available': False, 'message': 'Your username is already taken'})
     else:

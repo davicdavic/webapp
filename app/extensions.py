@@ -33,6 +33,11 @@ compress = Compress() if Compress else None
 session_ext = Session() if Session else None
 
 
+def _is_redis_cache_backend(cache_type):
+    value = (cache_type or '').lower()
+    return value == 'redis' or 'rediscache' in value
+
+
 def init_extensions(app):
     """Initialize all Flask extensions with the app"""
     db.init_app(app)
@@ -44,7 +49,7 @@ def init_extensions(app):
     except Exception as exc:
         # Local fallback: keep app booting even if redis backend isn't available.
         app.logger.warning(f'Cache backend init failed, falling back to simple cache: {exc}')
-        app.config['CACHE_TYPE'] = 'simple'
+        app.config['CACHE_TYPE'] = 'flask_caching.backends.simplecache.SimpleCache'
         cache.init_app(app)
     if compress is None:
         app.logger.warning('Flask-Compress is unavailable; continuing without response compression')
@@ -53,7 +58,7 @@ def init_extensions(app):
 
     # Shared Redis client (cache/session/game-state helpers can reuse this) only when needed.
     uses_redis = (
-        app.config.get('CACHE_TYPE') == 'redis'
+        _is_redis_cache_backend(app.config.get('CACHE_TYPE'))
         or app.config.get('GAME_STATE_BACKEND') == 'redis'
         or (
             app.config.get('ENABLE_SERVER_SIDE_SESSIONS')
@@ -103,3 +108,14 @@ def init_extensions(app):
             if session_redis and redis is not None:
                 app.config['SESSION_REDIS'] = redis.Redis.from_url(session_redis, decode_responses=True)
             session_ext.init_app(app)
+
+
+def verify_database_connection(app):
+    """Verify runtime DB connectivity and log the active backend."""
+    from sqlalchemy import text
+
+    with app.app_context():
+        row = db.session.execute(text('SELECT 1')).scalar()
+        if row != 1:
+            raise RuntimeError('Database connectivity check failed')
+        app.logger.info('Database ready: %s', app.config.get('SQLALCHEMY_DATABASE_URI'))

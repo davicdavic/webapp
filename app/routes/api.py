@@ -7,6 +7,8 @@ from flask_login import login_required, current_user
 from app.extensions import db
 from app.models import User, Post, PostInteraction, GameScore
 from app.services import UserService, MissionService, DepositService
+from app.api_utils import error, ok, paginated, paginate_request_args
+from app.services.pagination_service import PaginationService
 
 api_bp = Blueprint('api', __name__)
 
@@ -26,10 +28,10 @@ def get_current_user():
 def get_user(user_id):
     """Get user by ID"""
     if user_id != current_user.id and not current_user.is_admin():
-        return jsonify({'error': 'User not found'}), 404
+        return error('User not found', 404)
     user = User.query.get(user_id)
     if not user:
-        return jsonify({'error': 'User not found'}), 404
+        return error('User not found', 404)
     return jsonify(user.to_dict())
 
 
@@ -86,8 +88,8 @@ def submit_mission(mission_id):
     )
     
     if submission:
-        return jsonify({'success': True, 'message': message, 'submission': submission.to_dict()})
-    return jsonify({'success': False, 'message': message}), 400
+        return ok({'message': message, 'submission': submission.to_dict()})
+    return error(message, 400)
 
 
 @api_bp.route('/my-missions')
@@ -96,21 +98,14 @@ def submit_mission(mission_id):
 def get_my_missions():
     """Get user's mission submissions"""
     status = request.args.get('status')
-    page = max(request.args.get('page', 1, type=int), 1)
-    per_page = request.args.get('per_page', 20, type=int)
-    per_page = max(1, min(per_page, 50))
+    params = paginate_request_args(request, default_per_page=20)
     submissions = MissionService.get_user_submissions(
         current_user.id,
         status=status,
-        page=page,
-        per_page=per_page
+        page=params.page,
+        per_page=params.per_page
     )
-    return jsonify({
-        'items': [s.to_dict() for s in submissions.items],
-        'total': submissions.total,
-        'pages': submissions.pages,
-        'current_page': submissions.page
-    })
+    return paginated(submissions, serializer=lambda s: s.to_dict())
 
 
 # ==================== Feed API ====================
@@ -119,19 +114,13 @@ def get_my_missions():
 @login_required
 def get_feed():
     """Get social feed"""
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 20, type=int)
-    per_page = max(1, min(per_page, 50))
-    
-    posts = Post.query.order_by(Post.created_at.desc())\
-        .paginate(page=page, per_page=per_page, error_out=False)
-    
-    return jsonify({
-        'posts': [p.to_dict() for p in posts.items],
-        'total': posts.total,
-        'pages': posts.pages,
-        'current_page': page
-    })
+    params = paginate_request_args(request, default_per_page=20)
+    posts = PaginationService.paginate(
+        Post.query.order_by(Post.created_at.desc(), Post.id.desc()),
+        page=params.page,
+        per_page=params.per_page,
+    )
+    return paginated(posts, key='posts', serializer=lambda p: p.to_dict())
 
 
 @api_bp.route('/feed', methods=['POST'])
@@ -144,7 +133,7 @@ def create_post():
     image_url = data.get('image_url')
     
     if not content:
-        return jsonify({'error': 'Content is required'}), 400
+        return error('Content is required', 400)
     
     post = Post(
         user_id=current_user.id,
@@ -154,7 +143,7 @@ def create_post():
     db.session.add(post)
     db.session.commit()
     
-    return jsonify({'success': True, 'post': post.to_dict()})
+    return ok({'post': post.to_dict()}, 201)
 
 
 @api_bp.route('/feed/<int:post_id>/like', methods=['POST'])
@@ -171,7 +160,7 @@ def like_post(post_id):
     if existing:
         db.session.delete(existing)
         db.session.commit()
-        return jsonify({'success': True, 'liked': False})
+        return ok({'liked': False})
     
     like = PostInteraction(
         post_id=post_id,
@@ -181,7 +170,7 @@ def like_post(post_id):
     db.session.add(like)
     db.session.commit()
     
-    return jsonify({'success': True, 'liked': True})
+    return ok({'liked': True})
 
 
 @api_bp.route('/feed/<int:post_id>/comment', methods=['POST'])
@@ -193,7 +182,7 @@ def comment_post(post_id):
     comment_text = data.get('comment', '').strip()
     
     if not comment_text:
-        return jsonify({'error': 'Comment is required'}), 400
+        return error('Comment is required', 400)
     
     comment = PostInteraction(
         post_id=post_id,
@@ -204,13 +193,13 @@ def comment_post(post_id):
     db.session.add(comment)
     db.session.commit()
     
-    return jsonify({'success': True, 'comment': {
+    return ok({'comment': {
         'id': comment.id,
         'user_id': comment.user_id,
         'username': current_user.username,
         'comment': comment.comment,
         'created_at': comment.created_at.isoformat()
-    }})
+    }}, 201)
 
 
 # ==================== Deposit API ====================
@@ -220,21 +209,14 @@ def comment_post(post_id):
 def get_deposits():
     """Get user's deposits"""
     status = request.args.get('status')
-    page = max(request.args.get('page', 1, type=int), 1)
-    per_page = request.args.get('per_page', 20, type=int)
-    per_page = max(1, min(per_page, 50))
+    params = paginate_request_args(request, default_per_page=20)
     deposits = DepositService.get_user_deposits(
         current_user.id,
         status=status,
-        page=page,
-        per_page=per_page
+        page=params.page,
+        per_page=params.per_page
     )
-    return jsonify({
-        'items': [d.to_dict() for d in deposits.items],
-        'total': deposits.total,
-        'pages': deposits.pages,
-        'current_page': deposits.page
-    })
+    return paginated(deposits, serializer=lambda d: d.to_dict())
 
 
 @api_bp.route('/deposits', methods=['POST'])
@@ -248,13 +230,13 @@ def create_deposit():
     try:
         deposit = DepositService.create_deposit(current_user.id, raw_amount)
     except ValueError as exc:
-        return jsonify({'error': str(exc)}), 400
+        return error(str(exc), 400)
 
     return jsonify({
         'success': True,
         'deposit': deposit.to_dict(),
         'payment_url': url_for('deposit.view', deposit_id=deposit.id),
-    })
+    }), 201
 
 
 # ==================== Game API ====================

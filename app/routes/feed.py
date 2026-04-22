@@ -8,16 +8,20 @@ from datetime import datetime
 
 from flask import Blueprint, flash, jsonify, redirect, render_template, request, url_for
 from flask_login import login_required, current_user
+from sqlalchemy import func
 from sqlalchemy.orm import joinedload
 
 from app.extensions import cache, db
 from app.models import Post, PostInteraction, User
 from app.utils import save_uploaded_image_optimized
 from app.performance import CACHE_TIMEOUTS, cache_with_user_hash
+from app.services.pagination_service import PaginationService
+from app.services.wallet_service import WalletService
+from app.validators import ValidationError
 
 feed_bp = Blueprint('feed', __name__)
 THREAD_POST_COST = 100
-FEED_BATCH_SIZE = 10
+FEED_BATCH_SIZE = 20
 
 
 def generate_post_number():
@@ -109,11 +113,12 @@ def _collect_descendant_ids(post_id):
 
 def _query_thread_posts(page: int, per_page: int = FEED_BATCH_SIZE):
     """Paginated OP posts with efficient LIMIT/OFFSET query."""
-    return (
+    return PaginationService.paginate(
         Post.query.options(joinedload(Post.author))
         .filter(Post.parent_id.is_(None))
-        .order_by(Post.created_at.desc())
-        .paginate(page=page, per_page=per_page, error_out=False)
+        .order_by(Post.created_at.desc(), Post.id.desc()),
+        page=page,
+        per_page=per_page,
     )
 
 
@@ -136,14 +141,20 @@ def index():
 @feed_bp.route('/api/posts')
 def api_posts():
     """API endpoint for paginated posts."""
-    page = request.args.get('page', 1, type=int)
-    limit = request.args.get('limit', 10, type=int)
-    
-    # Ensure reasonable limits
-    limit = min(max(limit, 1), 50)
-    page = max(page, 1)
-    
-    posts = _query_thread_posts(page=page, per_page=limit)
+    params = PaginationService.get_page_args(
+        page=request.args.get('page', 1, type=int),
+        per_page=request.args.get('limit', FEED_BATCH_SIZE, type=int),
+    )
+    posts = _query_thread_posts(page=params.page, per_page=params.per_page)
+    post_ids = [post.id for post in posts.items]
+    reply_counts = {}
+    if post_ids:
+        reply_counts = dict(
+            db.session.query(Post.parent_id, func.count(Post.id))
+            .filter(Post.parent_id.in_(post_ids))
+            .group_by(Post.parent_id)
+            .all()
+        )
     
     # Convert posts to JSON-serializable format
     posts_data = []
@@ -164,7 +175,7 @@ def api_posts():
             'created_at': post.created_at.isoformat() if post.created_at else None,
             'author': author_data,
             'post_number': post.post_number,
-            'reply_count': len(_collect_thread_replies(post.id)) if post.parent_id is None else 0
+            'reply_count': int(reply_counts.get(post.id, 0))
         })
     
     return jsonify({
@@ -224,14 +235,17 @@ def create():
     )
 
     if parent_post is None:
-        user = User.query.get(current_user.id)
-        if not user:
-            flash('User not found', 'error')
-            return redirect(url_for('feed.index'))
-        if user.coins < THREAD_POST_COST:
+        try:
+            WalletService.debit_user(
+                user_id=current_user.id,
+                amount=THREAD_POST_COST,
+                transaction_type='thread_post_fee',
+                details=f'post:{post.post_number}',
+            )
+        except ValidationError:
+            db.session.rollback()
             flash(f'You need at least {THREAD_POST_COST} TNNO to create a thread.', 'error')
             return redirect(url_for('feed.index'))
-        user.coins -= THREAD_POST_COST
 
     db.session.add(post)
     db.session.commit()
@@ -427,8 +441,6 @@ def delete(post_id):
     if post.parent_id and redirect_thread_id and redirect_thread_id != post.id:
         return redirect(url_for('feed.view', post_id=redirect_thread_id))
     return redirect(url_for('feed.index'))
-
-
 
 
 

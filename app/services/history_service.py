@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import inspect, or_, text
 
 from app.extensions import db
+from app.datetime_utils import utc_now
 from app.models import (
     Deposit,
     HistoryEntry,
@@ -280,7 +281,7 @@ class HistoryService:
 
     @staticmethod
     def cutoff_datetime() -> datetime:
-        return datetime.utcnow() - timedelta(days=HistoryService.RETENTION_DAYS)
+        return utc_now() - timedelta(days=HistoryService.RETENTION_DAYS)
 
     @staticmethod
     def normalize_user_filter(filter_key: str | None) -> str:
@@ -334,7 +335,7 @@ class HistoryService:
     @staticmethod
     def sync_history_entries(user_id: int | None = None, force: bool = False) -> int:
         """Sync denormalized history entries from source tables."""
-        now = datetime.utcnow()
+        now = utc_now()
         if not force:
             if user_id is not None:
                 last = HistoryService._last_user_sync.get(user_id)
@@ -796,7 +797,7 @@ class HistoryService:
         summary: str,
         link: str | None,
     ) -> dict:
-        created = created_at or datetime.utcnow()
+        created = created_at or utc_now()
         archived = bool(source_archived) or created < HistoryService.cutoff_datetime()
         return {
             'user_id': int(user_id),
@@ -856,7 +857,7 @@ class HistoryService:
                     existing.summary = payload['summary']
                     existing.link = payload['link']
                     existing.section = payload['section']
-                    existing.updated_at = datetime.utcnow()
+                    existing.updated_at = utc_now()
                     changed += 1
 
         return changed

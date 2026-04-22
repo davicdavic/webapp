@@ -18,6 +18,8 @@ except Exception:  # pragma: no cover - optional dependency during local dev
     class UnidentifiedImageError(Exception):
         pass
 from app.models import User
+from app.datetime_utils import utc_now
+from app.services.cloudinary_service import CloudinaryService
 
 
 # Allowed file extensions for uploads
@@ -59,6 +61,11 @@ def save_uploaded_file(file, subfolder=''):
     """
     if not file or not allowed_file(file.filename):
         return None
+
+    cloudinary_folder = current_app.config.get('CLOUDINARY_UPLOAD_FOLDER') or 'retroquest'
+    remote_url = CloudinaryService.upload(file, folder=f'{cloudinary_folder}/{subfolder or "misc"}', resource_type='auto')
+    if remote_url:
+        return remote_url
     
     # Generate secure filename
     filename = secure_filename(file.filename)
@@ -97,6 +104,11 @@ def save_uploaded_image_optimized(file, subfolder='posts', max_bytes=MAX_IMAGE_U
     """
     if not file or not file.filename:
         return None
+
+    cloudinary_folder = current_app.config.get('CLOUDINARY_UPLOAD_FOLDER') or 'retroquest'
+    remote_url = CloudinaryService.upload(file, folder=f'{cloudinary_folder}/{subfolder}', resource_type='image')
+    if remote_url:
+        return remote_url
 
     safe_name = secure_filename(file.filename)
     ext = safe_name.rsplit('.', 1)[-1].lower() if '.' in safe_name else ''
@@ -211,7 +223,7 @@ def format_datetime_ago(dt):
     if not dt:
         return ''
     
-    now = datetime.utcnow()
+    now = utc_now()
     diff = now - dt
     
     if diff.days > 365:
@@ -237,7 +249,7 @@ def count_words(text: str) -> int:
 
 def calculate_deadline(hours=24):
     """Calculate deadline datetime"""
-    return datetime.utcnow() + timedelta(hours=hours)
+    return utc_now() + timedelta(hours=hours)
 
 
 def paginate_query(query, page=1, per_page=20):

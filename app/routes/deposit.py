@@ -13,6 +13,7 @@ import json
 from flask import Blueprint, current_app, flash, jsonify, redirect, render_template, request, url_for
 from flask_login import login_required, current_user
 
+from app.datetime_utils import utc_now
 from app.extensions import db
 from app.services import DepositService
 from app.services.history_service import HistoryService
@@ -237,7 +238,7 @@ def view(deposit_id):
     )
     qr_code = generate_qr_code(qr_payload)
 
-    now = datetime.utcnow()
+    now = utc_now()
     seconds_left = 0
     if deposit.expires_at:
         seconds_left = max(0, int((deposit.expires_at - now).total_seconds()))
@@ -267,7 +268,7 @@ def status(deposit_id):
     if not deposit or deposit.user_id != current_user.id:
         return jsonify({'error': 'Deposit not found'}), 404
 
-    now = datetime.utcnow()
+    now = utc_now()
     seconds_left = 0
     if deposit.expires_at:
         seconds_left = max(0, int((deposit.expires_at - now).total_seconds()))

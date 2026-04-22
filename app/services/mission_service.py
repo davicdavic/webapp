@@ -5,6 +5,7 @@ Business logic for mission management
 from datetime import datetime, timedelta
 from flask import current_app
 from sqlalchemy import inspect, text
+from app.datetime_utils import utc_now
 from app.extensions import db, cache
 from app.models import Mission, UserMission, User
 from app.services.history_service import HistoryService
@@ -128,7 +129,7 @@ class MissionService:
             code=code,
             mission_photo=photo_path,
             status='pending',
-            mission_deadline=datetime.utcnow() + timedelta(hours=mission.time_limit)
+            mission_deadline=utc_now() + timedelta(hours=mission.time_limit)
         )
         
         db.session.add(submission)

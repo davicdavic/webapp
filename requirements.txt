@@ -14,3 +14,4 @@ pillow==10.4.0
 requests==2.31.0
 psycopg2-binary==2.9.10
 web3==6.15.1
+cloudinary==1.41.0

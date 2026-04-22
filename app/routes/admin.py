@@ -8,7 +8,10 @@ from app.extensions import db
 from app.models import User, Mission, UserMission, Deposit, WithdrawRequest, WorkRequest, ServiceOrder, Product, MerchOrder, SellerRequest, SellerReport, UserNotification
 from app.services.seller_service import SellerService
 from app.services import MissionService, DepositService
+from app.datetime_utils import utc_now
 from app.services.history_service import HistoryService
+from app.services.wallet_service import WalletService
+from app.route_modules.admin_finance import register_admin_finance_routes
 from sqlalchemy import func
 from datetime import datetime
 
@@ -96,7 +99,7 @@ def review_seller_report(report_id):
     report = SellerReport.query.get_or_404(report_id)
     if report.status != 'reviewed':
         report.status = 'reviewed'
-        report.reviewed_at = datetime.utcnow()
+        report.reviewed_at = utc_now()
         report.reviewed_by = current_user.id
         db.session.commit()
 
@@ -200,7 +203,7 @@ def users():
     query = (request.args.get('q') or '').strip()
 
     # Seller sales stats (total + current month)
-    start_of_month = datetime.utcnow().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    start_of_month = utc_now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     sales_rows = db.session.query(
         Product.seller_id.label('seller_id'),
         func.coalesce(func.sum(MerchOrder.total_price), 0).label('total_sales'),
@@ -299,7 +302,7 @@ def approve_seller_request(req_id):
     req = SellerRequest.query.get_or_404(req_id)
     if req.status != 'approved':
         req.status = 'approved'
-        req.reviewed_at = datetime.utcnow()
+        req.reviewed_at = utc_now()
         req.reviewed_by = current_user.id
         user = User.query.get(req.user_id)
         if user:
@@ -328,7 +331,7 @@ def reject_seller_request(req_id):
     if req.status != 'rejected':
         was_pending = req.status == 'pending'
         req.status = 'rejected'
-        req.reviewed_at = datetime.utcnow()
+        req.reviewed_at = utc_now()
         req.reviewed_by = current_user.id
         if was_pending:
             user = User.query.get(req.user_id)
@@ -349,7 +352,7 @@ def edit_user(user_id):
         return redirect(url_for('missions.index'))
     
     user = User.query.get_or_404(user_id)
-    start_of_month = datetime.utcnow().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    start_of_month = utc_now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     
     if request.method == 'POST':
         coins = request.form.get('coins', 0, type=int)
@@ -549,214 +552,4 @@ def deposits():
     return render_template('admin/deposits.html', deposits=deposits)
 
 
-@admin_bp.route('/withdrawals')
-@login_required
-def withdrawals():
-    """Manage withdrawal requests"""
-    if not admin_required():
-        flash('Access denied', 'error')
-        return redirect(url_for('missions.index'))
-    
-    status = request.args.get('status', 'pending')
-    if status != 'pending':
-        status = 'pending'
-    page = request.args.get('page', 1, type=int)
-    per_page = 20
-    
-    query = WithdrawRequest.query.filter(WithdrawRequest.is_archived.is_(False))
-    if status:
-        query = query.filter_by(status=status)
-    
-    withdraws = query.order_by(WithdrawRequest.created_at.desc())\
-        .paginate(page=page, per_page=per_page, error_out=False)
-    
-    return render_template('admin/withdrawals.html', withdraws=withdraws)
-
-
-@admin_bp.route('/withdrawals/<int:withdraw_id>/approve', methods=['POST'])
-@login_required
-def approve_withdrawal(withdraw_id):
-    """Approve withdrawal request"""
-    if not admin_required():
-        flash('Access denied', 'error')
-        return redirect(url_for('missions.index'))
-    
-    withdraw = WithdrawRequest.query.get_or_404(withdraw_id)
-    withdraw.status = 'approved'
-    HistoryService.mark_archived_if_terminal(withdraw, 'withdrawals')
-    db.session.commit()
-    
-    flash('Withdrawal approved!', 'success')
-    return redirect(url_for('admin.withdrawals'))
-
-
-@admin_bp.route('/withdrawals/<int:withdraw_id>/reject', methods=['POST'])
-@login_required
-def reject_withdrawal(withdraw_id):
-    """Reject withdrawal request"""
-    if not admin_required():
-        flash('Access denied', 'error')
-        return redirect(url_for('missions.index'))
-    
-    withdraw = WithdrawRequest.query.get_or_404(withdraw_id)
-    withdraw.status = 'rejected'
-    HistoryService.mark_archived_if_terminal(withdraw, 'withdrawals')
-    
-    # Refund TNNO to user
-    user = User.query.get(withdraw.user_id)
-    if user:
-        user.coins += withdraw.amount
-    
-    db.session.commit()
-    
-    flash('Withdrawal rejected and refunded', 'success')
-    return redirect(url_for('admin.withdrawals'))
-
-
-@admin_bp.route('/work-requests')
-@login_required
-def work_requests():
-    """Manage work requests"""
-    if not admin_required():
-        flash('Access denied', 'error')
-        return redirect(url_for('missions.index'))
-    
-    status = request.args.get('status', 'pending')
-    if status != 'pending':
-        status = 'pending'
-    page = request.args.get('page', 1, type=int)
-    per_page = 20
-    
-    query = WorkRequest.query.filter(WorkRequest.is_archived.is_(False))
-    if status:
-        query = query.filter_by(status=status)
-    
-    work_reqs = query.order_by(WorkRequest.created_at.desc())\
-        .paginate(page=page, per_page=per_page, error_out=False)
-    
-    return render_template('admin/work_requests.html', work_requests=work_reqs)
-
-
-@admin_bp.route('/work-requests/<int:request_id>/accept', methods=['POST'])
-@login_required
-def accept_work_request(request_id):
-    """Accept work request and charge TNNO fee."""
-    if not admin_required():
-        flash('Access denied', 'error')
-        return redirect(url_for('missions.index'))
-
-    work_req = WorkRequest.query.get_or_404(request_id)
-    if work_req.status != 'pending':
-        flash('Only pending work requests can be accepted', 'error')
-        return redirect(url_for('admin.work_requests'))
-
-    user = User.query.get(work_req.user_id)
-    if not user:
-        flash('User not found for this request', 'error')
-        return redirect(url_for('admin.work_requests'))
-
-    request_fee = int(current_app.config.get('WORK_REQUEST_FEE_TNNO', 10000))
-    if user.coins < request_fee:
-        flash('User does not have enough TNNO to accept this request', 'error')
-        return redirect(url_for('admin.work_requests'))
-
-    user.coins -= request_fee
-    work_req.status = 'accepted'
-    HistoryService.mark_archived_if_terminal(work_req, 'work_requests')
-    db.session.commit()
-
-    flash('Work request accepted and fee charged', 'success')
-    return redirect(url_for('admin.work_requests'))
-
-
-@admin_bp.route('/work-requests/<int:request_id>/reject', methods=['POST'])
-@login_required
-def reject_work_request(request_id):
-    """Reject work request (no TNNO charge)."""
-    if not admin_required():
-        flash('Access denied', 'error')
-        return redirect(url_for('missions.index'))
-
-    work_req = WorkRequest.query.get_or_404(request_id)
-    if work_req.status != 'pending':
-        flash('Only pending work requests can be rejected', 'error')
-        return redirect(url_for('admin.work_requests'))
-
-    work_req.status = 'rejected'
-    HistoryService.mark_archived_if_terminal(work_req, 'work_requests')
-    db.session.commit()
-
-    flash('Work request rejected', 'success')
-    return redirect(url_for('admin.work_requests'))
-
-
-@admin_bp.route('/service-orders')
-@login_required
-def service_orders():
-    """Manage service orders"""
-    if not admin_required():
-        flash('Access denied', 'error')
-        return redirect(url_for('missions.index'))
-    
-    status = request.args.get('status', 'pending')
-    if status != 'pending':
-        status = 'pending'
-    page = request.args.get('page', 1, type=int)
-    per_page = 20
-    
-    query = ServiceOrder.query.filter(ServiceOrder.is_archived.is_(False))
-    if status:
-        query = query.filter_by(status=status)
-    
-    orders = query.order_by(ServiceOrder.created_at.desc())\
-        .paginate(page=page, per_page=per_page, error_out=False)
-    
-    return render_template('admin/service_orders.html', orders=orders)
-
-
-@admin_bp.route('/service-orders/<int:order_id>/accept', methods=['POST'])
-@login_required
-def accept_service_order(order_id):
-    """Accept service order (mark completed)."""
-    if not admin_required():
-        flash('Access denied', 'error')
-        return redirect(url_for('missions.index'))
-
-    order = ServiceOrder.query.get_or_404(order_id)
-    if order.status != 'pending':
-        flash('Only pending service orders can be accepted', 'error')
-        return redirect(url_for('admin.service_orders'))
-
-    order.status = 'completed'
-    HistoryService.mark_archived_if_terminal(order, 'service_orders')
-    db.session.commit()
-
-    flash('Service order accepted', 'success')
-    return redirect(url_for('admin.service_orders'))
-
-
-@admin_bp.route('/service-orders/<int:order_id>/reject', methods=['POST'])
-@login_required
-def reject_service_order(order_id):
-    """Reject service order and refund user TNNO."""
-    if not admin_required():
-        flash('Access denied', 'error')
-        return redirect(url_for('missions.index'))
-
-    order = ServiceOrder.query.get_or_404(order_id)
-    if order.status != 'pending':
-        flash('Only pending service orders can be rejected', 'error')
-        return redirect(url_for('admin.service_orders'))
-
-    order.status = 'rejected'
-    HistoryService.mark_archived_if_terminal(order, 'service_orders')
-
-    # Refund TNNO because the order was not fulfilled.
-    user = User.query.get(order.user_id)
-    if user:
-        user.coins += order.charge
-
-    db.session.commit()
-
-    flash('Service order rejected and refunded', 'success')
-    return redirect(url_for('admin.service_orders'))
+register_admin_finance_routes(admin_bp, admin_required)

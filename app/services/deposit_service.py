@@ -12,6 +12,7 @@ import requests
 from flask import current_app, request, url_for
 from sqlalchemy import inspect, text
 
+from app.datetime_utils import utc_now
 from app.extensions import db
 from app.models import Deposit
 
@@ -113,7 +114,7 @@ class DepositService:
     @staticmethod
     def _generate_unique_expected_amount(base_amount: Decimal) -> Decimal:
         """Generate an exact unique amount by adding a micro suffix."""
-        now = datetime.utcnow()
+        now = utc_now()
 
         for _ in range(60):
             suffix = UNIQUE_STEP * random.randint(1, UNIQUE_STEPS)
@@ -180,7 +181,7 @@ class DepositService:
         points_amount = int((amount * to_points).to_integral_value(rounding=ROUND_DOWN))
 
         timeout_seconds = int(current_app.config.get('DEPOSIT_TIMEOUT', 1200))
-        now = datetime.utcnow()
+        now = utc_now()
         expires_at = now + timedelta(seconds=timeout_seconds)
 
         deposit = Deposit(
@@ -277,7 +278,7 @@ class DepositService:
             'price_amount': float(amount),
             'price_currency': 'usd',
             'pay_currency': pay_currency,
-            'order_id': f'deposit-{user_id}-{int(datetime.utcnow().timestamp())}',
+            'order_id': f'deposit-{user_id}-{int(utc_now().timestamp())}',
             'order_description': f'RetroQuest USD deposit via {network}',
             'ipn_callback_url': callback_url,
             'success_url': success_url,
@@ -346,7 +347,7 @@ class DepositService:
             payment_id=payment_id,
             status='pending',
             coin_type='USDT',
-            created_at=datetime.utcnow(),
+            created_at=utc_now(),
         )
         db.session.add(deposit)
         db.session.commit()
@@ -374,7 +375,7 @@ class DepositService:
         user.coins = (user.coins or 0) + tnno_amount
         deposit.status = 'completed'
         deposit.coins_added = tnno_amount
-        deposit.credited_at = datetime.utcnow()
+        deposit.credited_at = utc_now()
 
         db.session.add(user)
         db.session.add(deposit)
@@ -392,7 +393,7 @@ class DepositService:
     @staticmethod
     def expire_overdue_deposits():
         """Expire unpaid deposits after timeout."""
-        now = datetime.utcnow()
+        now = utc_now()
 
         overdue = Deposit.query.filter(
             Deposit.status == 'pending',

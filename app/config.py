@@ -5,6 +5,7 @@ Optimized for 100K+ users
 """
 import os
 from datetime import timedelta
+from urllib.parse import urlparse
 
 
 def _bool_env(name: str, default: bool) -> bool:
@@ -30,6 +31,39 @@ def _normalize_database_url(value):
     return value
 
 
+def _normalize_cache_type(value):
+    """Map legacy Flask-Caching aliases to backend class paths."""
+    raw = (value or 'simple').strip()
+    lowered = raw.lower()
+    if lowered == 'simple':
+        return 'flask_caching.backends.simplecache.SimpleCache'
+    if lowered == 'redis':
+        return 'flask_caching.backends.rediscache.RedisCache'
+    return raw
+
+
+def _build_engine_options(database_uri: str):
+    if 'sqlite' in database_uri:
+        return {
+            'pool_pre_ping': True,
+        }
+
+    options = {
+        'pool_pre_ping': True,
+        'pool_recycle': int(os.environ.get('DB_POOL_RECYCLE') or '300'),
+        'pool_size': int(os.environ.get('DB_POOL_SIZE') or '5'),
+        'max_overflow': int(os.environ.get('DB_MAX_OVERFLOW') or '10'),
+        'pool_timeout': int(os.environ.get('DB_POOL_TIMEOUT') or '30'),
+        'pool_use_lifo': True,
+    }
+
+    parsed = urlparse(database_uri)
+    if parsed.scheme.startswith('postgresql'):
+        ssl_mode = os.environ.get('DB_SSL_MODE') or ('require' if os.environ.get('RENDER') else 'prefer')
+        options['connect_args'] = {'sslmode': ssl_mode}
+    return options
+
+
 class Config:
     """Base configuration class"""
 
@@ -44,22 +78,11 @@ class Config:
         f'sqlite:///{os.path.join(BASE_DIR, "..", "instance", "database.db")}'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
-    if 'sqlite' in SQLALCHEMY_DATABASE_URI:
-        SQLALCHEMY_ENGINE_OPTIONS = {
-            'pool_pre_ping': True,
-        }
-    else:
-        SQLALCHEMY_ENGINE_OPTIONS = {
-            'pool_pre_ping': True,
-            'pool_recycle': int(os.environ.get('DB_POOL_RECYCLE') or '300'),
-            'pool_size': int(os.environ.get('DB_POOL_SIZE') or '20'),
-            'max_overflow': int(os.environ.get('DB_MAX_OVERFLOW') or '30'),
-            'pool_timeout': int(os.environ.get('DB_POOL_TIMEOUT') or '30'),
-        }
+    SQLALCHEMY_ENGINE_OPTIONS = _build_engine_options(SQLALCHEMY_DATABASE_URI)
 
     # Cache Configuration - Optimized for high traffic
     # For production with 100K+ users, use Redis: CACHE_TYPE = 'redis'
-    CACHE_TYPE = os.environ.get('CACHE_TYPE') or 'simple'
+    CACHE_TYPE = _normalize_cache_type(os.environ.get('CACHE_TYPE'))
     REDIS_URL = os.environ.get('REDIS_URL') or 'redis://localhost:6379/0'
     CACHE_REDIS_URL = os.environ.get('CACHE_REDIS_URL') or REDIS_URL
     CACHE_DEFAULT_TIMEOUT = int(os.environ.get('CACHE_TIMEOUT') or '60')  # 1 minute default
@@ -91,6 +114,10 @@ class Config:
         'pdf', 'zip', 'rar', 'txt', 'doc', 'docx'
     }
     ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp'}
+    CLOUDINARY_CLOUD_NAME = _env('CLOUDINARY_CLOUD_NAME')
+    CLOUDINARY_API_KEY = _env('CLOUDINARY_API_KEY')
+    CLOUDINARY_API_SECRET = _env('CLOUDINARY_API_SECRET')
+    CLOUDINARY_UPLOAD_FOLDER = _env('CLOUDINARY_UPLOAD_FOLDER') or 'retroquest'
 
     # Session Configuration
     SESSION_COOKIE_HTTPONLY = True
@@ -101,6 +128,9 @@ class Config:
     REMEMBER_COOKIE_DURATION = timedelta(days=30)
     REMEMBER_COOKIE_REFRESH_EACH_REQUEST = True
     REMEMBER_COOKIE_SECURE = False
+    PREFERRED_URL_SCHEME = os.environ.get('PREFERRED_URL_SCHEME') or 'http'
+    TRUST_PROXY_HEADERS = _bool_env('TRUST_PROXY_HEADERS', False)
+    TRUSTED_PROXY_HOPS = int(os.environ.get('TRUSTED_PROXY_HOPS') or '1')
 
     # CSRF Protection (enabled by default)
     CSRF_ENABLED = _bool_env('CSRF_ENABLED', True)
@@ -187,7 +217,8 @@ class Config:
 
     # Performance Settings
     # Maximum number of posts to load per page (optimized for large datasets)
-    POSTS_PER_PAGE = int(os.environ.get('POSTS_PER_PAGE') or '15')
+    POSTS_PER_PAGE = int(os.environ.get('POSTS_PER_PAGE') or '20')
+    MESSAGES_PER_PAGE = int(os.environ.get('MESSAGES_PER_PAGE') or '20')
 
     # Work Requests
     WORK_REQUEST_FEE_TNNO = int(os.environ.get('WORK_REQUEST_FEE_TNNO') or '10000')
@@ -221,9 +252,11 @@ class ProductionConfig(Config):
 
     SESSION_COOKIE_SECURE = True
     REMEMBER_COOKIE_SECURE = True
+    PREFERRED_URL_SCHEME = _env('PREFERRED_URL_SCHEME') or 'https'
+    TRUST_PROXY_HEADERS = _bool_env('TRUST_PROXY_HEADERS', True)
 
     # Use Redis only when a Redis service is actually configured.
-    CACHE_TYPE = _env('CACHE_TYPE') or ('redis' if _HAS_REDIS_URL else 'simple')
+    CACHE_TYPE = _normalize_cache_type(_env('CACHE_TYPE') or ('redis' if _HAS_REDIS_URL else 'simple'))
     ENABLE_SERVER_SIDE_SESSIONS = _bool_env('ENABLE_SERVER_SIDE_SESSIONS', _HAS_REDIS_URL)
     GAME_STATE_BACKEND = _env('GAME_STATE_BACKEND') or ('redis' if _HAS_REDIS_URL else 'memory')
 
@@ -255,7 +288,14 @@ class ProductionConfig(Config):
 class TestingConfig(Config):
     """Testing configuration"""
     TESTING = True
-    SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
+    SQLALCHEMY_DATABASE_URI = _normalize_database_url(_env('DATABASE_URL')) or 'sqlite:///:memory:'
+    CSRF_ENABLED = False
+    WTF_CSRF_ENABLED = False
+    AUTO_CREATE_SCHEMA_ON_START = True
+    SESSION_COOKIE_SECURE = False
+    REMEMBER_COOKIE_SECURE = False
+    ENABLE_SERVER_SIDE_SESSIONS = False
+    CACHE_TYPE = _normalize_cache_type('simple')
 
 
 # Configuration dictionary

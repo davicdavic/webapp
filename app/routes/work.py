@@ -8,7 +8,9 @@ from app.extensions import db
 from app.models import WorkRequest, ServiceOrder, WithdrawRequest
 from app.services.history_service import HistoryService
 from app.services import DepositService
+from app.services.wallet_service import WalletService
 from app.utils import save_uploaded_file
+from app.validators import ValidationError
 
 work_bp = Blueprint('work', __name__)
 
@@ -230,29 +232,41 @@ def create_order():
             flash('Invalid charge amount', 'error')
             return render_template('work/create_order.html', **build_order_context(form_data))
         
-        # Check if user has enough TNNO
-        if current_user.coins < charge:
+        try:
+            WalletService.debit_user(
+                user_id=current_user.id,
+                amount=charge,
+                transaction_type='service_order_charge',
+                details=f'{category}:{service}',
+            )
+            order = ServiceOrder(
+                user_id=current_user.id,
+                category=category,
+                service=service,
+                link=link if link else None,
+                quantity=quantity,
+                charge=charge,
+                status='pending'
+            )
+            db.session.add(order)
+            db.session.flush()
+            WalletService.record_transaction(
+                user_id=current_user.id,
+                amount=0,
+                transaction_type='service_order_created',
+                status='pending',
+                reference_type='service_order',
+                reference_id=order.id,
+                details=f'{category}:{service}',
+            )
+            db.session.commit()
+        except ValidationError:
+            db.session.rollback()
             flash(
                 f'Insufficient TNNO. Need {charge:,}, you have {current_user.coins:,}.',
                 'error'
             )
             return render_template('work/create_order.html', **build_order_context(form_data))
-        
-        # Deduct TNNO
-        current_user.coins -= charge
-        
-        # Create order
-        order = ServiceOrder(
-            user_id=current_user.id,
-            category=category,
-            service=service,
-            link=link if link else None,
-            quantity=quantity,
-            charge=charge,
-            status='pending'
-        )
-        db.session.add(order)
-        db.session.commit()
         
         flash(f'Service order created! Charged {charge:,} TNNO.', 'success')
         return redirect(url_for('work.orders'))
@@ -330,35 +344,17 @@ def create_withdraw():
         name = request.form.get('name', '').strip()
         network = request.form.get('network', '').strip()
         
-        if amount <= 0:
-            flash('Invalid amount', 'error')
+        try:
+            WalletService.create_withdrawal(
+                user_id=current_user.id,
+                amount=amount,
+                wallet=wallet,
+                name=name,
+                network=network or None,
+            )
+        except ValidationError as exc:
+            flash(str(exc), 'error')
             return redirect(url_for('work.create_withdraw'))
-        
-        if not wallet or not name:
-            flash('Address or phone number and name are required', 'error')
-            return redirect(url_for('work.create_withdraw'))
-
-        if network and network not in {'ERC20', 'BEP20', 'TRC20', 'PHONE'}:
-            flash('Invalid payout method', 'error')
-            return redirect(url_for('work.create_withdraw'))
-        
-        if current_user.coins < amount:
-            flash('Insufficient TNNO', 'error')
-            return redirect(url_for('work.create_withdraw'))
-        
-        # Deduct TNNO
-        current_user.coins -= amount
-        
-        # Create withdrawal request
-        withdraw = WithdrawRequest(
-            user_id=current_user.id,
-            amount=amount,
-            wallet=wallet,
-            name=name,
-            status='pending'
-        )
-        db.session.add(withdraw)
-        db.session.commit()
         
         flash('Withdrawal request submitted!', 'success')
         return redirect(url_for('work.withdraw'))
@@ -396,4 +392,3 @@ def finance():
         wallet_address=current_app.config.get('WALLET_ADDRESS'),
         request_fee=get_work_request_fee()
     )
-

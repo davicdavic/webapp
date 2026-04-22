@@ -14,6 +14,7 @@ from decimal import Decimal, ROUND_DOWN
 from flask import current_app
 from web3 import Web3
 
+from app.datetime_utils import utc_now
 from app.extensions import db
 from app.models import Deposit, User
 
@@ -275,7 +276,7 @@ class BlockchainService:
         if not deposit:
             return
 
-        now = datetime.utcnow()
+        now = utc_now()
         if deposit.expires_at and now > deposit.expires_at:
             return
 
@@ -493,7 +494,7 @@ class BlockchainChecker:
             return
 
         try:
-            now = datetime.utcnow()
+            now = utc_now()
             timeout_seconds = int(self.app.config.get('DEPOSIT_TIMEOUT', 1200))
             required_confirmations = int(self.app.config.get('DEPOSIT_CONFIRMATIONS', 3))
             lookback_blocks = int(self.app.config.get('DEPOSIT_LOOKBACK_BLOCKS', 600))
@@ -657,6 +658,5 @@ class BlockchainChecker:
             db.session.rollback()
         finally:
             self._lock.release()
-
 
 

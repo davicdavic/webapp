@@ -7,6 +7,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from sqlalchemy import inspect, text
 
+from app.datetime_utils import utc_now
 from app.extensions import db
 
 
@@ -97,6 +98,6 @@ class SellerService:
     @staticmethod
     def compute_new_expiry(current_expires_at: datetime | None, months: int) -> datetime:
         """Return new expiration timestamp using 30-day months."""
-        now = datetime.utcnow()
+        now = utc_now()
         base = current_expires_at if current_expires_at and current_expires_at > now else now
         return base + timedelta(days=30 * months)
