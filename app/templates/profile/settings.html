@@ -3,7 +3,7 @@
 {% block title %}Settings - RetroQuest{% endblock %}
 
 {% block content %}
-<div class="px-flex px-justify-between px-items-center px-mb-lg">
+<div class="px-flex px-justify-between px-items-center px-mb-lg settings-header-row">
     <h1>Settings</h1>
     <a href="{{ url_for('profile.index') }}" class="px-btn px-btn-secondary">
         Back to Profile
@@ -26,7 +26,7 @@
 </div>
 {% endif %}
 
-<div class="px-grid px-grid-2">
+<div class="px-grid px-grid-2 settings-grid">
     <!-- Change Password -->
     <div class="px-panel">
         <div class="px-panel-header">
@@ -204,7 +204,7 @@
             </div>
             <div class="px-form-group">
                 <label class="px-form-label">Location</label>
-                <div class="px-flex px-gap-sm">
+                <div class="px-flex px-gap-sm seller-location-row">
                     <input type="text" id="sellerLocationText" name="location_text" class="px-input" placeholder="Tap to share location" readonly>
                     <button type="button" id="sellerLocationBtn" class="px-btn px-btn-secondary">Use My Location</button>
                 </div>
@@ -299,8 +299,41 @@
 }
 
 @media (max-width: 768px) {
-    .px-grid {
+    .settings-grid {
         grid-template-columns: 1fr !important;
+    }
+
+    .settings-header-row {
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .settings-header-row .px-btn,
+    .px-btn-block,
+    details summary.px-btn,
+    #sellerLocationBtn {
+        width: 100%;
+        padding: 12px 14px;
+        font-size: 0.52rem;
+    }
+
+    .seller-location-row {
+        flex-direction: column;
+    }
+}
+
+@media (max-width: 480px) {
+    .settings-header-row .px-btn,
+    .px-btn-block,
+    details summary.px-btn,
+    #sellerLocationBtn {
+        min-height: 36px;
+        padding: 9px 10px;
+        font-size: 0.48rem;
+    }
+
+    .px-panel {
+        padding: 14px;
     }
 }
 </style>

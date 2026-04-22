@@ -535,6 +535,8 @@
 
     .missions-actions .px-btn {
         width: 100%;
+        padding: 12px 14px;
+        font-size: 0.52rem;
     }
 
     .px-stats-compact {
@@ -558,9 +560,35 @@
         flex-direction: column;
         align-items: stretch;
     }
+
+    .mission-actions .px-btn {
+        width: 100%;
+        min-height: 40px;
+        padding: 10px 12px;
+        font-size: 0.5rem;
+    }
 }
 
 @media (max-width: 480px) {
+    .missions-page {
+        padding-bottom: 8px;
+    }
+
+    .missions-header {
+        margin-bottom: 18px;
+    }
+
+    .missions-actions {
+        gap: 6px;
+    }
+
+    .missions-actions .px-btn {
+        min-height: 36px;
+        padding: 9px 10px;
+        font-size: 0.48rem;
+        letter-spacing: 0.3px;
+    }
+
     .px-stats-compact {
         grid-template-columns: 1fr;
     }
@@ -571,6 +599,12 @@
 
     .mission-card-image {
         max-width: 180px;
+    }
+
+    .mission-actions .px-btn {
+        min-height: 34px;
+        padding: 8px 10px;
+        font-size: 0.46rem;
     }
 }
 </style>

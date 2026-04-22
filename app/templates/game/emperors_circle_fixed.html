@@ -1528,14 +1528,14 @@
                 <div>
                     <div class="player-name">{{ current_user.username }}</div>
                     <div class="player-balance">
-                        <span class="balance-icon">??</span>
+                        <span class="balance-icon">🪙</span>
                         <span class="balance-amount" id="balance">{{ current_user.coins|default(0)|round|int }}</span>
                     </div>
                 </div>
             </div>
         </header>
 
-        <a href="{{ url_for('game.index') }}" class="back-btn">�� BACK TO GAMES</a>
+        <a href="{{ url_for('game.index') }}" class="back-btn">← BACK TO GAMES</a>
 
         <!-- Lobby Screen -->
         <div class="lobby-screen screen active" id="lobbyScreen">
@@ -1614,15 +1614,15 @@
                 <div class="hand-title">YOUR HAND</div>
                 <div class="hand-cards">
                     <div class="hand-card" data-card="king">
-                        <span class="hand-card-emoji">??</span>
+                        <span class="hand-card-emoji">👑</span>
                         <span class="hand-card-name">KING</span>
                     </div>
                     <div class="hand-card" data-card="people">
-                        <span class="hand-card-emoji">??</span>
+                        <span class="hand-card-emoji">👥</span>
                         <span class="hand-card-name">PEOPLE</span>
                     </div>
                     <div class="hand-card" data-card="slave">
-                        <span class="hand-card-emoji">??</span>
+                        <span class="hand-card-emoji">⛓</span>
                         <span class="hand-card-name">SLAVE</span>
                     </div>
                 </div>
@@ -1770,9 +1770,9 @@
 
         // Card Info
         const CARD_INFO = {
-            king: { emoji: '??', name: 'KING', class: 'king' },
-            people: { emoji: '??', name: 'PEOPLE', class: 'people' },
-            slave: { emoji: '??', name: 'SLAVE', class: 'slave' }
+            king: { emoji: '👑', name: 'KING', class: 'king' },
+            people: { emoji: '👥', name: 'PEOPLE', class: 'people' },
+            slave: { emoji: '⛓', name: 'SLAVE', class: 'slave' }
         };
 
         // DOM Elements
@@ -2479,9 +2479,9 @@
                 const winAmount = coinChange > 0 ? coinChange : (data.bet || 0);
                 const feeAmount = Number(data.platform_fee || 0);
                 if (feeAmount > 0) {
-                    elements.resultAmount.innerHTML = '+' + formatBalance(winAmount) + ' ?? <span style="font-size: 0.5rem; color: #888;">(fee -' + formatBalance(feeAmount) + ')</span>';
+                    elements.resultAmount.innerHTML = '+' + formatBalance(winAmount) + ' 🪙 <span style="font-size: 0.5rem; color: #888;">(fee -' + formatBalance(feeAmount) + ')</span>';
                 } else {
-                    elements.resultAmount.textContent = '+' + formatBalance(winAmount) + ' ??';
+                    elements.resultAmount.textContent = '+' + formatBalance(winAmount) + ' 🪙';
                 }
                 
                 // Add win effect to my card
@@ -2503,7 +2503,7 @@
                 elements.resultBanner.textContent = 'YOU LOSE';
                 elements.resultBanner.className = 'result-banner lose';
                 const loseAmount = coinChange < 0 ? Math.abs(coinChange) : (data.bet || 0);
-                elements.resultAmount.textContent = '-' + formatBalance(loseAmount) + ' ??';
+                elements.resultAmount.textContent = '-' + formatBalance(loseAmount) + ' 🪙';
                 
                 // Add lose effect to my card
                 elements.myCard.classList.add('loser');
@@ -2518,7 +2518,7 @@
                 
                 elements.resultBanner.textContent = 'DRAW!';
                 elements.resultBanner.className = 'result-banner draw';
-                elements.resultAmount.textContent = '0 ?? (no TNNO change)';
+                elements.resultAmount.textContent = '0 🪙 (no TNNO change)';
                 
                 // Add draw effect to both cards
                 setTimeout(() => {

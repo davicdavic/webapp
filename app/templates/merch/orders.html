@@ -34,8 +34,8 @@
 {% endif %}
 
     
-    <a href="{{ url_for('merch.index') }}" class="px-btn px-btn-sm" style="margin-bottom: 20px; display: inline-block;">
-        â†?Back to Store
+    <a href="{{ url_for('merch.index') }}" class="px-btn px-btn-sm orders-back-link" style="margin-bottom: 20px; display: inline-block;">
+        ← Back to Store
     </a>
     
     {% if orders %}
@@ -51,20 +51,20 @@
                             <h3 style="font-family: 'Press Start 2P', cursive; font-size: 0.7rem; color: var(--px-gold); margin-bottom: 8px;">
                                 {{ order.product.name }}
                             </h3>
-                            <p class="px-text-sm px-text-muted">
-                                Quantity: {{ order.quantity }} |
-                                Total: ?? {{ order.total_price }} |
-                                Date: {{ order.purchased_at.strftime('%Y-%m-%d %H:%M') if order.purchased_at else 'N/A' }}
-                            </p>
+                            <p class="px-text-sm px-text-muted">
+                                Quantity: {{ order.quantity }} |
+                                Total: 🪙 {{ order.total_price }} |
+                                Date: {{ order.purchased_at.strftime('%Y-%m-%d %H:%M') if order.purchased_at else 'N/A' }}
+                            </p>
                         </div>
                         <span class="px-status px-status-success">Completed</span>
                     </div>
 
                     <div style="background: var(--px-bg-dark); padding: 16px; border: 2px solid var(--px-border);">
                         {% set file_count = order.files.count() %}
-                        <h4 style="font-family: 'Press Start 2P', cursive; font-size: 0.5rem; margin-bottom: 12px;">
-                            ?? Your Files ({{ file_count }})
-                        </h4>
+                        <h4 style="font-family: 'Press Start 2P', cursive; font-size: 0.5rem; margin-bottom: 12px;">
+                            📦 Your Files ({{ file_count }})
+                        </h4>
 
                         <div style="display: flex; flex-direction: column; gap: 8px;">
                             {% for file in order.files.all() %}
@@ -98,11 +98,11 @@
                             <h3 style="font-family: 'Press Start 2P', cursive; font-size: 0.7rem; color: var(--px-gold); margin-bottom: 8px;">
                                 {{ order.product.name }}
                             </h3>
-                            <p class="px-text-sm px-text-muted">
-                                Quantity: {{ order.quantity }} |
-                                Total: ?? {{ order.total_price }} |
-                                Date: {{ order.purchased_at.strftime('%Y-%m-%d %H:%M') if order.purchased_at else 'N/A' }}
-                            </p>
+                            <p class="px-text-sm px-text-muted">
+                                Quantity: {{ order.quantity }} |
+                                Total: 🪙 {{ order.total_price }} |
+                                Date: {{ order.purchased_at.strftime('%Y-%m-%d %H:%M') if order.purchased_at else 'N/A' }}
+                            </p>
                         </div>
                         <span class="px-status px-status-{{ order.status }}">{{ order.status|title }}</span>
                     </div>
@@ -168,14 +168,14 @@
         </div>
         {% endif %}
     </div>
-{% else %}
-    <div class="px-panel" style="text-align: center; padding: 60px 20px;">
-        <div style="font-size: 4rem; margin-bottom: 20px;">ðŸ“¦</div>
-        <h2 style="font-family: 'Press Start 2P', cursive; font-size: 1rem; margin-bottom: 10px;">No Purchases Yet</h2>
-        <p class="px-text-muted">Visit the store to buy digital products!</p>
-        <a href="{{ url_for('merch.index') }}" class="px-btn px-btn-primary" style="margin-top: 20px;">
-            Browse Store
-        </a>
+{% else %}
+    <div class="px-panel" style="text-align: center; padding: 60px 20px;">
+        <div style="font-size: 4rem; margin-bottom: 20px;">📦</div>
+        <h2 style="font-family: 'Press Start 2P', cursive; font-size: 1rem; margin-bottom: 10px;">No Purchases Yet</h2>
+        <p class="px-text-muted">Visit the store to buy digital products!</p>
+        <a href="{{ url_for('merch.index') }}" class="px-btn px-btn-primary" style="margin-top: 20px;">
+            Browse Store
+        </a>
     </div>
     {% endif %}
 </div>
@@ -260,19 +260,57 @@ setInterval(updateCountdowns, 1000);
     flex-shrink: 0;
 }
 
-@media (max-width: 640px) {
-    .order-file-row {
-        flex-wrap: wrap;
-    }
+@media (max-width: 640px) {
+    .orders-back-link,
+    .px-pagination .px-btn,
+    .order-file-download {
+        width: 100%;
+        text-align: center;
+        padding: 10px 12px;
+        font-size: 0.5rem;
+    }
+
+    .px-mb-lg > div[style*="justify-content: space-between"] .px-btn,
+    div[style*="display: flex; gap: 8px; flex-wrap: wrap;"] .px-btn {
+        width: 100%;
+        padding: 10px 12px;
+        font-size: 0.5rem;
+    }
+
+    div[style*="justify-content: space-between; align-items: flex-start; margin-bottom: 16px;"] {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    div[style*="display: flex; gap: 8px; flex-wrap: wrap;"] form,
+    div[style*="display: flex; gap: 8px; flex-wrap: wrap;"] form .px-btn {
+        width: 100%;
+    }
+
+    .order-file-row {
+        flex-wrap: wrap;
+    }
     .order-file-name {
         width: 100%;
         white-space: normal;
         word-break: break-word;
     }
-    .order-file-download {
-        width: 100%;
-        text-align: center;
-    }
-}
-</style>
-{% endblock %}
+    .order-file-download {
+        width: 100%;
+        text-align: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .orders-back-link,
+    .px-pagination .px-btn,
+    .order-file-download,
+    .px-mb-lg > div[style*="justify-content: space-between"] .px-btn,
+    div[style*="display: flex; gap: 8px; flex-wrap: wrap;"] .px-btn {
+        min-height: 36px;
+        padding: 9px 10px;
+        font-size: 0.46rem;
+    }
+}
+</style>
+{% endblock %}

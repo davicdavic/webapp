@@ -95,7 +95,7 @@
                     <label class="px-label">Product Files * (Upload one file per quantity)</label>
                     <input type="file" name="files" id="digital-files" class="px-input" multiple accept=".zip,.rar,.pdf,.txt,.doc,.docx,.mp3,.mp4" title="Product Files">
                     <p class="px-text-sm px-text-muted px-mt-sm">
-                        ??? <strong>Important:</strong> Select ALL files at once. 
+                        ⚠️ <strong>Important:</strong> Select ALL files at once. 
                         If you want to sell 5 items, select 5 files at once.<br>
                         Each file = 1 quantity. Example: Selling 10 items = upload 10 files.
                     </p>
@@ -186,7 +186,7 @@ if (fileInput && fileCount) {
     fileInput.addEventListener('change', function() {
         const count = this.files.length;
         if (count > 0) {
-            fileCount.innerHTML = `??${count} file(s) selected (${count} quantity)`;
+            fileCount.innerHTML = `📦 ${count} file(s) selected (${count} quantity)`;
             fileCount.style.color = 'var(--px-green)';
         } else {
             fileCount.innerHTML = 'No files selected';

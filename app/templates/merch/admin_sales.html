@@ -220,6 +220,20 @@
 
     .submissions-header .px-btn {
         width: 100%;
+        padding: 12px 14px;
+        font-size: 0.52rem;
+    }
+
+    .px-flex.px-gap-md.px-mb-lg {
+        flex-direction: column;
+    }
+
+    .px-flex.px-gap-md.px-mb-lg .px-btn,
+    .px-pagination .px-btn,
+    td[data-label="ETA"] form .px-btn {
+        width: 100%;
+        padding: 12px 14px;
+        font-size: 0.52rem;
     }
 
     .sales-table thead {
@@ -260,6 +274,17 @@
         font-weight: bold;
         margin-bottom: 4px;
         font-size: 0.95em;
+    }
+}
+
+@media (max-width: 480px) {
+    .submissions-header .px-btn,
+    .px-flex.px-gap-md.px-mb-lg .px-btn,
+    .px-pagination .px-btn,
+    td[data-label="ETA"] form .px-btn {
+        min-height: 36px;
+        padding: 9px 10px;
+        font-size: 0.48rem;
     }
 }
 </style>

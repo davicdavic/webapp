@@ -3,14 +3,14 @@
 {% block title %}Mission Details - RetroQuest{% endblock %}
 
 {% block content %}
-<div class="px-flex px-justify-between px-items-center px-mb-lg">
+<div class="px-flex px-justify-between px-items-center px-mb-lg mission-view-topbar">
     <h1>Mission Details</h1>
     <a href="{{ url_for('missions.index') }}" class="px-btn px-btn-secondary">
         Back to Missions
     </a>
 </div>
 
-<div class="px-grid" style="grid-template-columns: 2fr 1fr;">
+<div class="px-grid mission-view-layout" style="grid-template-columns: 2fr 1fr;">
     <!-- Mission Details -->
     <div class="px-panel">
         <div class="px-flex px-justify-between px-items-start">
@@ -67,7 +67,7 @@
                         <input type="file" id="photo" name="photo" class="px-input" accept=".jpg,.jpeg,.png,image/jpeg,image/png">
                     </div>
                     
-                    <button type="submit" class="px-btn px-btn-primary px-btn-lg">
+                    <button type="submit" class="px-btn px-btn-primary px-btn-lg mission-submit-btn">
                         Submit Mission
                     </button>
                 </form>
@@ -88,7 +88,7 @@
                     <input type="file" id="photo" name="photo" class="px-input" accept=".jpg,.jpeg,.png,image/jpeg,image/png">
                 </div>
                 
-                <button type="submit" class="px-btn px-btn-primary px-btn-lg">
+                <button type="submit" class="px-btn px-btn-primary px-btn-lg mission-submit-btn">
                     Submit Mission
                 </button>
             </form>
@@ -133,4 +133,44 @@
         {% endif %}
     </div>
 </div>
+<style>
+@media (max-width: 768px) {
+    .mission-view-topbar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+
+    .mission-view-topbar .px-btn {
+        width: 100%;
+        padding: 12px 14px;
+        font-size: 0.52rem;
+    }
+
+    .mission-view-layout {
+        grid-template-columns: 1fr !important;
+    }
+
+    .mission-submit-btn {
+        width: 100%;
+        min-height: 42px;
+        padding: 12px 14px;
+        font-size: 0.6rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .mission-view-topbar .px-btn {
+        min-height: 36px;
+        padding: 9px 10px;
+        font-size: 0.48rem;
+    }
+
+    .mission-submit-btn {
+        min-height: 36px;
+        padding: 10px 12px;
+        font-size: 0.5rem;
+    }
+}
+</style>
 {% endblock %}

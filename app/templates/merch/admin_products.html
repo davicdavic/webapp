@@ -150,6 +150,25 @@
 }
 
 @media (max-width: 768px) {
+    .px-mb-lg > div[style*="justify-content: space-between"] {
+        flex-direction: column;
+        align-items: stretch !important;
+        gap: 10px;
+    }
+
+    .px-mb-lg > div[style*="justify-content: space-between"] .px-btn,
+    .px-panel form[method="GET"] .px-btn,
+    .px-pagination .px-btn {
+        width: 100%;
+        padding: 12px 14px;
+        font-size: 0.52rem;
+    }
+
+    .px-panel form[method="GET"] {
+        flex-direction: column;
+        align-items: stretch !important;
+    }
+
     .merch-products-table thead {
         display: none;
     }
@@ -197,6 +216,23 @@
 
     .merch-products-table td [style*="display: flex; gap: 8px"] {
         flex-wrap: wrap;
+    }
+
+    .merch-products-table td [style*="display: flex; gap: 8px"] .px-btn,
+    .merch-products-table td [style*="display: flex; gap: 8px"] form,
+    .merch-products-table td [style*="display: flex; gap: 8px"] form .px-btn {
+        width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    .px-mb-lg > div[style*="justify-content: space-between"] .px-btn,
+    .px-panel form[method="GET"] .px-btn,
+    .px-pagination .px-btn,
+    .merch-products-table td [style*="display: flex; gap: 8px"] .px-btn {
+        min-height: 36px;
+        padding: 9px 10px;
+        font-size: 0.48rem;
     }
 }
 </style>

@@ -16,6 +16,15 @@ from app.utils import save_uploaded_image_optimized
 
 
 def register_marketplace_chat_routes(merch_bp):
+    def is_ajax_request() -> bool:
+        return (
+            request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+            or 'application/json' in request.headers.get('Accept', '')
+        )
+
+    def typing_cache_key(conversation_id: int, user_id: int) -> str:
+        return f'seller_chat_typing:{conversation_id}:{user_id}'
+
     @merch_bp.route('/seller/<int:seller_id>/chat')
     @login_required
     def seller_chat(seller_id):
@@ -77,6 +86,12 @@ def register_marketplace_chat_routes(merch_bp):
             per_page=params.per_page,
         )
         messages = list(reversed(paginated_messages.items))
+        first_unread = SellerChatMessage.query.filter(
+            SellerChatMessage.conversation_id == conversation.id,
+            SellerChatMessage.sender_id != current_user.id,
+            SellerChatMessage.is_read.is_(False)
+        ).order_by(SellerChatMessage.created_at.asc(), SellerChatMessage.id.asc()).first()
+        unread_marker_id = first_unread.id if first_unread else None
 
         SellerChatMessage.query.filter(
             SellerChatMessage.conversation_id == conversation.id,
@@ -99,7 +114,8 @@ def register_marketplace_chat_routes(merch_bp):
             other_user=other_user,
             messages=messages,
             chat_mode=requested_mode,
-            messages_page=paginated_messages
+            messages_page=paginated_messages,
+            unread_marker_id=unread_marker_id
         )
 
     @merch_bp.route('/chat/<int:conversation_id>/send', methods=['POST'])
@@ -120,6 +136,8 @@ def register_marketplace_chat_routes(merch_bp):
         image = request.files.get('image')
 
         if not message_text and not (image and image.filename):
+            if is_ajax_request():
+                return jsonify({'ok': False, 'error': 'Message or image is required'}), 400
             flash('Message or image is required', 'error')
             return redirect(url_for('merch.chat_conversation', conversation_id=conversation.id))
 
@@ -130,6 +148,8 @@ def register_marketplace_chat_routes(merch_bp):
                 image_path = save_uploaded_image_optimized(image, 'chat')
                 message_type = 'image'
             except ValueError as exc:
+                if is_ajax_request():
+                    return jsonify({'ok': False, 'error': str(exc)}), 400
                 flash(str(exc), 'error')
                 return redirect(url_for('merch.chat_conversation', conversation_id=conversation.id))
 
@@ -161,7 +181,7 @@ def register_marketplace_chat_routes(merch_bp):
 
         db.session.commit()
 
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', ''):
+        if is_ajax_request():
             return jsonify({
                 'ok': True,
                 'message': {
@@ -193,6 +213,12 @@ def register_marketplace_chat_routes(merch_bp):
             per_page=params.per_page,
         )
         messages = list(reversed(paginated_messages.items))
+        first_unread = SellerChatMessage.query.filter(
+            SellerChatMessage.conversation_id == conversation_id,
+            SellerChatMessage.sender_id != current_user.id,
+            SellerChatMessage.is_read.is_(False)
+        ).order_by(SellerChatMessage.created_at.asc(), SellerChatMessage.id.asc()).first()
+        unread_marker_id = first_unread.id if first_unread else None
 
         SellerChatMessage.query.filter(
             SellerChatMessage.conversation_id == conversation_id,
@@ -202,10 +228,15 @@ def register_marketplace_chat_routes(merch_bp):
         db.session.commit()
         cache.delete(f'profile_index_{current_user.id}')
 
+        other_user_id = conversation.seller_id if current_user.id == conversation.buyer_id else conversation.buyer_id
+        other_user_typing = bool(cache.get(typing_cache_key(conversation_id, other_user_id)))
+
         return jsonify({
             'page': paginated_messages.page,
             'pages': paginated_messages.pages,
             'has_next': paginated_messages.has_next,
+            'other_user_typing': other_user_typing,
+            'unread_marker_id': unread_marker_id,
             'messages': [{
                 'id': m.id,
                 'sender_id': m.sender_id,
@@ -217,6 +248,22 @@ def register_marketplace_chat_routes(merch_bp):
                 'is_read': m.is_read
             } for m in messages]
         })
+
+    @merch_bp.route('/chat/<int:conversation_id>/typing', methods=['POST'])
+    @login_required
+    def typing_status(conversation_id):
+        """Lightweight typing heartbeat for chat UX."""
+        conversation = SellerChatConversation.query.get_or_404(conversation_id)
+        if current_user.id not in {conversation.buyer_id, conversation.seller_id}:
+            return jsonify({'ok': False, 'error': 'Access denied'}), 403
+
+        is_typing = bool((request.get_json(silent=True) or {}).get('typing'))
+        key = typing_cache_key(conversation_id, current_user.id)
+        if is_typing:
+            cache.set(key, True, timeout=8)
+        else:
+            cache.delete(key)
+        return jsonify({'ok': True})
 
     @merch_bp.route('/my-chats')
     @login_required

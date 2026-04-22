@@ -245,6 +245,13 @@ body {
     .chan-input--compact {
         max-width: 100%;
     }
+
+    .chan-submit-btn,
+    .inline-reply-btn,
+    .cancel-reply-btn {
+        padding: 9px 14px;
+        font-size: 12px;
+    }
 }
 
 .chan-file-input {
@@ -750,6 +757,14 @@ max-height: 250px;
 @media (max-width: 480px) {
     body {
         font-size: 15px;
+    }
+
+    .chan-submit-btn,
+    .inline-reply-btn,
+    .cancel-reply-btn {
+        min-height: 34px;
+        padding: 8px 12px;
+        font-size: 11px;
     }
 
     .chan-header h1 {

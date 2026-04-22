@@ -452,6 +452,15 @@
     .seller-products-grid {
         grid-template-columns: 1fr;
     }
+
+    .seller-back-btn,
+    .seller-hero-actions .px-btn,
+    .seller-side-btn,
+    .seller-product-footer .px-btn {
+        width: 100%;
+        padding: 12px 14px;
+        font-size: 0.52rem;
+    }
 }
 
 @media (max-width: 640px) {
@@ -475,6 +484,31 @@
     .seller-products-head {
         align-items: flex-start;
         flex-direction: column;
+    }
+
+    .seller-hero-card {
+        justify-items: center;
+        text-align: center;
+    }
+
+    .seller-hero-copy,
+    .seller-hero-actions {
+        width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    .seller-back-btn,
+    .seller-hero-actions .px-btn,
+    .seller-side-btn,
+    .seller-product-footer .px-btn {
+        min-height: 36px;
+        padding: 9px 10px;
+        font-size: 0.48rem;
+    }
+
+    .seller-products-count {
+        font-size: 0.68rem;
     }
 }
 </style>
