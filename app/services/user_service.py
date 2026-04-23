@@ -130,7 +130,11 @@ class UserService:
     @staticmethod
     def get_leaderboard(limit=10):
         """Get users ranked by TNNO"""
-        return User.query.order_by(User.coins.desc()).limit(limit).all()
+        admin_username = (current_app.config.get('ADMIN_USER', 'admin') or 'admin').lower()
+        return User.query.filter(
+            User.role != 'admin',
+            func.lower(User.username) != admin_username
+        ).order_by(User.coins.desc()).limit(limit).all()
     
     @staticmethod
     def save_game_score(user_id, score, game_id='emperors_circle'):

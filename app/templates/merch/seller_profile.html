@@ -58,6 +58,8 @@
                 </div>
                 {% else %}
                 <div class="seller-hero-actions">
+                    <a href="{{ url_for('merch.admin_create') }}" class="px-btn px-btn-primary">Add Product</a>
+                    <a href="{{ url_for('merch.admin_products') }}" class="px-btn px-btn-secondary">Manage Products</a>
                     <a href="{{ url_for('profile.edit') }}" class="px-btn px-btn-secondary">Edit Store Look</a>
                 </div>
                 {% endif %}
@@ -148,7 +150,22 @@
 
                         <div class="seller-product-footer">
                             <div class="seller-product-price">🪙 {{ product.price }}</div>
-                            <a href="{{ url_for('merch.product_detail', product_id=product.id) }}" class="px-btn px-btn-primary px-btn-sm">View</a>
+                            <div class="seller-product-actions">
+                                <a href="{{ url_for('merch.product_detail', product_id=product.id) }}" class="px-btn px-btn-primary px-btn-sm">View</a>
+                                {% if seller.id == current_user.id %}
+                                <a href="{{ url_for('merch.admin_edit', product_id=product.id) }}" class="px-btn px-btn-secondary px-btn-sm">Edit Product</a>
+                                <form method="POST" action="{{ url_for('merch.admin_hide', product_id=product.id) }}" class="seller-product-action-form">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="px-btn px-btn-secondary px-btn-sm">
+                                        {% if product.is_active %}Hide{% else %}Show{% endif %}
+                                    </button>
+                                </form>
+                                <form method="POST" action="{{ url_for('merch.admin_delete', product_id=product.id) }}" class="seller-product-action-form" onsubmit="return confirm('Delete this product?');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="px-btn px-btn-danger px-btn-sm">Delete</button>
+                                </form>
+                                {% endif %}
+                            </div>
                         </div>
                     </div>
                 </article>
@@ -432,6 +449,18 @@
     border-top: 1px solid rgba(93, 132, 214, 0.14);
 }
 
+.seller-product-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.seller-product-action-form {
+    margin: 0;
+    display: contents;
+}
+
 .seller-product-price {
     color: var(--px-cyan-dark);
     font-family: 'Press Start 2P', cursive;
@@ -460,6 +489,16 @@
         width: 100%;
         padding: 12px 14px;
         font-size: 0.52rem;
+    }
+
+    .seller-product-footer {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .seller-product-actions {
+        width: 100%;
+        justify-content: stretch;
     }
 }
 
@@ -505,6 +544,11 @@
         min-height: 36px;
         padding: 9px 10px;
         font-size: 0.48rem;
+    }
+
+    .seller-product-actions .px-btn {
+        flex: 1 1 0;
+        text-align: center;
     }
 
     .seller-products-count {

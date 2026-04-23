@@ -170,26 +170,26 @@
             <form method="POST" action="{{ url_for('merch.buy_product', product_id=product.id) }}" class="px-panel product-buy-card">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                 <div class="px-form-group">
-                    <label class="px-label">Quantity</label>
+                    <label class="px-label" for="quantity">Quantity</label>
                     <input type="number" name="quantity" id="quantity" class="px-input product-qty-input" value="1" min="1" max="{{ product.quantity }}" required />
                 </div>
 
                 {% if product.product_type == 'physical' %}
                 <div class="px-form-group">
-                    <label class="px-label">Full Name</label>
-                    <input type="text" name="shipping_name" class="px-input" required />
+                    <label class="px-label" for="shipping_name">Full Name</label>
+                    <input type="text" name="shipping_name" id="shipping_name" class="px-input" required />
                 </div>
                 <div class="px-form-group">
-                    <label class="px-label">Country</label>
-                    <input type="text" name="shipping_country" class="px-input" required />
+                    <label class="px-label" for="shipping_country">Country</label>
+                    <input type="text" name="shipping_country" id="shipping_country" class="px-input" required />
                 </div>
                 <div class="px-form-group">
-                    <label class="px-label">City</label>
-                    <input type="text" name="shipping_city" class="px-input" required />
+                    <label class="px-label" for="shipping_city">City</label>
+                    <input type="text" name="shipping_city" id="shipping_city" class="px-input" required />
                 </div>
                 <div class="px-form-group">
-                    <label class="px-label">Phone Number</label>
-                    <input type="text" name="shipping_phone" class="px-input" required />
+                    <label class="px-label" for="shipping_phone">Phone Number</label>
+                    <input type="text" name="shipping_phone" id="shipping_phone" class="px-input" required />
                 </div>
                 <div class="px-form-group">
                     <label class="px-label">Share Location *</label>

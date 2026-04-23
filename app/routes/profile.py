@@ -3,7 +3,7 @@ Profile Routes
 User profile management
 """
 from datetime import datetime
-from flask import Blueprint, render_template, redirect, url_for, flash, request
+from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
 from flask_login import login_required, current_user
 from sqlalchemy import or_
 from app.extensions import db, cache
@@ -17,6 +17,12 @@ from app.utils import save_uploaded_file, save_uploaded_image_optimized
 from app.validators import ValidationError
 
 profile_bp = Blueprint('profile', __name__)
+
+
+def _latest_seller_request_for_current_user():
+    return SellerRequest.query.filter_by(user_id=current_user.id)\
+        .order_by(SellerRequest.created_at.desc())\
+        .first()
 
 
 @profile_bp.route('/')
@@ -82,9 +88,7 @@ def index():
             .filter(MerchOrder.purchased_at > last_seen)\
             .count()
 
-    latest_request = SellerRequest.query.filter_by(user_id=current_user.id)\
-        .order_by(SellerRequest.created_at.desc())\
-        .first()
+    latest_request = _latest_seller_request_for_current_user()
     seller_request_summary = None
     if latest_request:
         seller_request_summary = {
@@ -113,6 +117,28 @@ def index():
         chat_unread_count=chat_unread_count,
         seller_request_summary=seller_request_summary,
         seller_plans=SELLER_PLANS
+    )
+
+
+@profile_bp.route('/seller-hub')
+@login_required
+def seller_hub():
+    latest_request = _latest_seller_request_for_current_user()
+    seller_request_summary = None
+    if latest_request:
+        seller_request_summary = {
+            'status': latest_request.status,
+            'plan_key': latest_request.plan_key,
+            'plan_cost': latest_request.plan_cost,
+            'created_at': latest_request.created_at,
+            'reviewed_at': latest_request.reviewed_at,
+        }
+
+    return render_template(
+        'profile/seller_hub.html',
+        seller_request=latest_request,
+        seller_request_summary=seller_request_summary,
+        seller_plans=SELLER_PLANS,
     )
 
 
@@ -283,11 +309,11 @@ def seller_request():
     ).first()
     if existing_pending:
         flash('You already have a pending seller request.', 'error')
-        return redirect(url_for('profile.index'))
+        return redirect(url_for('profile.seller_hub'))
 
     if current_user.is_seller:
         flash('Your seller access is already approved.', 'info')
-        return redirect(url_for('profile.index'))
+        return redirect(url_for('profile.seller_hub'))
 
     real_name = (request.form.get('real_name') or '').strip()
     country = (request.form.get('country') or '').strip()
@@ -305,21 +331,21 @@ def seller_request():
 
     if not all([real_name, country, city, phone, product_description]):
         flash('All seller request fields are required.', 'error')
-        return redirect(url_for('profile.index'))
+        return redirect(url_for('profile.seller_hub'))
 
     if not plan:
         flash('Please choose a seller plan.', 'error')
-        return redirect(url_for('profile.index'))
+        return redirect(url_for('profile.seller_hub'))
 
     if not id_front or not id_front.filename or not id_back or not id_back.filename:
         flash('ID card front and back images are required.', 'error')
-        return redirect(url_for('profile.index'))
+        return redirect(url_for('profile.seller_hub'))
 
     id_front_path = save_uploaded_file(id_front, 'seller_ids')
     id_back_path = save_uploaded_file(id_back, 'seller_ids')
     if not id_front_path or not id_back_path:
         flash('ID images must be valid image files.', 'error')
-        return redirect(url_for('profile.index'))
+        return redirect(url_for('profile.seller_hub'))
 
     cost = int(plan['cost'])
     try:
@@ -362,11 +388,11 @@ def seller_request():
     except ValidationError:
         db.session.rollback()
         flash(f'Insufficient TNNO. Need {cost:,}, you have {int(current_user.coins):,}.', 'error')
-        return redirect(url_for('profile.index'))
+        return redirect(url_for('profile.seller_hub'))
 
     cache.delete(f'profile_index_{current_user.id}')
     flash('Seller request submitted. Plan fee charged. Admin will review it soon.', 'success')
-    return redirect(url_for('profile.index'))
+    return redirect(url_for('profile.seller_hub'))
 
 
 @profile_bp.route('/seller-plan', methods=['POST'])
@@ -375,13 +401,13 @@ def seller_plan():
     """Purchase or renew seller subscription."""
     if not current_user.is_seller and not current_user.is_admin():
         flash('Seller access must be approved before purchasing a plan.', 'error')
-        return redirect(url_for('profile.index'))
+        return redirect(url_for('profile.seller_hub'))
 
     plan_key = (request.form.get('plan') or '').strip()
     plan = SELLER_PLANS.get(plan_key)
     if not plan:
         flash('Invalid seller plan selected.', 'error')
-        return redirect(request.referrer or url_for('profile.settings'))
+        return redirect(request.referrer or url_for('profile.seller_hub'))
 
     cost = int(plan['cost'])
     try:
@@ -400,11 +426,11 @@ def seller_plan():
     except ValidationError:
         db.session.rollback()
         flash(f'Insufficient TNNO. Need {cost:,}, you have {int(current_user.coins):,}.', 'error')
-        return redirect(request.referrer or url_for('profile.index'))
+        return redirect(request.referrer or url_for('profile.seller_hub'))
 
     cache.delete(f'profile_index_{current_user.id}')
     flash('Seller plan activated successfully!', 'success')
-    return redirect(request.referrer or url_for('profile.index'))
+    return redirect(request.referrer or url_for('profile.seller_hub'))
 
 
 @profile_bp.route('/delete-account', methods=['POST'])
@@ -437,6 +463,7 @@ def delete_account():
 def leaderboard():
     """View leaderboard - requires login for security"""
     tab = (request.args.get('tab') or 'users').lower()
+    admin_username = (current_app.config.get('ADMIN_USER', 'admin') or 'admin').lower()
 
     if tab == 'sellers':
         cache_key = f'leaderboard_sellers_user_{current_user.id}'
@@ -463,6 +490,8 @@ def leaderboard():
                 ratings_subq.c.avg_rating,
                 ratings_subq.c.rating_count
             ).join(sales_subq, sales_subq.c.seller_id == User.id)\
+             .filter(User.role != 'admin')\
+             .filter(db.func.lower(User.username) != admin_username)\
              .outerjoin(ratings_subq, ratings_subq.c.seller_id == User.id)\
              .order_by(sales_subq.c.total_sales.desc())\
              .limit(50)\
@@ -483,6 +512,8 @@ def leaderboard():
         leaders = UserService.get_leaderboard(limit=50)
         # Rank = users with strictly higher coin balance + 1
         higher_count = db.session.query(db.func.count(User.id))\
+            .filter(User.role != 'admin')\
+            .filter(db.func.lower(User.username) != admin_username)\
             .filter(User.coins > (current_user.coins or 0))\
             .scalar() or 0
         user_rank = higher_count + 1
