@@ -62,6 +62,11 @@
             return;
         }
 
+        if (chatPage.dataset.chatInitialized === 'true') {
+            return;
+        }
+        chatPage.dataset.chatInitialized = 'true';
+
         const conversationId = Number(chatPage.dataset.conversationId || 0);
         if (!conversationId) return;
 
@@ -537,6 +542,14 @@
                     sendTypingState(false);
                 }
             });
+            messageInput.addEventListener('keydown', function(event) {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault();
+                    if (!isSending) {
+                        chatForm?.requestSubmit();
+                    }
+                }
+            });
             window.setTimeout(() => {
                 if (document.body.contains(messageInput)) {
                     messageInput.focus();
@@ -546,7 +559,6 @@
 
         if (chatForm) {
             chatForm.setAttribute('data-turbo', 'false');
-            chatForm.setAttribute('target', '_top');
             chatForm.action = sendUrl;
             chatForm.noValidate = true;
         }
@@ -605,11 +617,6 @@
                 }
             }
         });
-        chatForm?.addEventListener('submit', function(event) {
-            event.preventDefault();
-            event.stopPropagation();
-        }, true);
-
         fetchMessages(false);
         chatMessages?.addEventListener('scroll', function() {
             if (chatMessages.scrollTop < 80) {
@@ -641,5 +648,14 @@
 
     document.addEventListener('DOMContentLoaded', initChatPage);
     document.addEventListener('turbo:load', initChatPage);
-    document.addEventListener('turbo:before-cache', clearChatPolling);
+    document.addEventListener('turbo:before-cache', function() {
+        const chatPage = document.querySelector('.chat-page');
+        if (chatPage) {
+            delete chatPage.dataset.chatInitialized;
+        }
+        clearChatPolling();
+    });
+    if (document.readyState !== 'loading') {
+        initChatPage();
+    }
 })();
