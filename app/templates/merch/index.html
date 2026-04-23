@@ -416,6 +416,9 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
+    object-position: center;
+    display: block;
+    background: linear-gradient(180deg, #eef3ff, #dce4f5);
 }
 
 .product-image-placeholder {
@@ -657,77 +660,91 @@
 
     .products-feed {
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 12px;
+        gap: 10px;
+    }
+
+    .product-card {
+        border-width: 2px;
+        box-shadow: 2px 2px 0 #aab4c8;
+    }
+
+    .product-card::before {
+        inset: 4px;
     }
 
     .product-content {
-        padding: 12px;
+        padding: 10px;
     }
 
     .product-title {
-        font-size: 0.52rem;
-        min-height: 2.4em;
+        font-size: 0.46rem;
+        min-height: 2.8em;
+        margin-bottom: 6px;
     }
 
     .product-description {
-        font-size: 0.72rem;
-        margin-bottom: 10px;
+        font-size: 0.66rem;
+        margin-bottom: 8px;
+        line-height: 1.35;
     }
 
     .product-seller {
-        gap: 6px;
-        margin-bottom: 10px;
-        font-size: 0.72rem;
+        gap: 5px;
+        margin-bottom: 8px;
+        font-size: 0.64rem;
     }
 
     .product-feedback-meta {
-        gap: 5px;
-        margin-bottom: 8px;
+        gap: 4px;
+        margin-bottom: 7px;
     }
 
     .feedback-chip {
-        font-size: 0.6rem;
-        padding: 3px 6px;
+        font-size: 0.54rem;
+        padding: 3px 5px;
     }
 
     .seller-avatar {
-        width: 20px;
-        height: 20px;
-        font-size: 0.62rem;
+        width: 18px;
+        height: 18px;
+        font-size: 0.56rem;
     }
 
     .seller-rating {
-        font-size: 0.68rem;
+        font-size: 0.58rem;
     }
 
     .product-price {
-        font-size: 0.62rem;
+        font-size: 0.54rem;
     }
 
     .product-footer {
         align-items: flex-start;
         flex-direction: column;
+        gap: 8px;
+        padding-top: 8px;
     }
 
     .product-footer .px-btn {
         width: 100%;
         justify-content: center;
-        font-size: 0.58rem;
-        padding: 10px 8px;
+        font-size: 0.5rem;
+        min-height: 34px;
+        padding: 8px 6px;
     }
 
     .product-type-badge {
         top: 8px;
         left: 8px;
-        padding: 4px 8px;
-        font-size: 0.56rem;
+        padding: 3px 7px;
+        font-size: 0.5rem;
     }
 
     .low-stock-badge {
         bottom: 8px;
         left: 8px;
-        padding: 4px 8px;
-        font-size: 0.62rem;
+        padding: 3px 7px;
+        font-size: 0.54rem;
     }
 
     .sold-out-badge {
@@ -747,15 +764,25 @@
     }
 
     .products-feed {
-        gap: 10px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
     }
 
     .product-content {
-        padding: 10px;
+        padding: 9px;
     }
 
     .product-title {
-        font-size: 0.48rem;
+        font-size: 0.43rem;
+    }
+
+    .product-description {
+        font-size: 0.62rem;
+    }
+
+    .product-seller,
+    .seller-rating {
+        font-size: 0.56rem;
     }
 }
 </style>

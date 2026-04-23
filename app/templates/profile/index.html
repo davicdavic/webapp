@@ -201,9 +201,44 @@
     margin-top: 0;
 }
 
+.profile-index-grid .px-badge-user {
+    font-size: 0.58rem;
+    padding: 4px 8px;
+}
+
 @media (max-width: 768px) {
     .profile-index-grid {
         grid-template-columns: 1fr !important;
+    }
+
+    .profile-index-grid .px-panel {
+        padding: 14px;
+    }
+
+    .profile-index-grid .px-profile-pic-lg {
+        max-width: 120px !important;
+        margin-bottom: 14px !important;
+    }
+
+    .profile-index-grid h2 {
+        font-size: 0.9rem;
+        margin-bottom: 8px;
+    }
+
+    .profile-index-grid .px-text-muted {
+        font-size: 0.68rem;
+    }
+
+    .profile-index-grid .px-stat-card {
+        padding: 10px;
+    }
+
+    .profile-index-grid .px-stat-value {
+        font-size: 0.74rem;
+    }
+
+    .profile-index-grid .px-stat-label {
+        font-size: 0.54rem;
     }
 
     .profile-quick-links-grid {
@@ -212,8 +247,21 @@
     }
 
     .profile-index-grid .px-btn {
-        padding: 12px 14px;
-        font-size: 0.52rem;
+        min-height: 38px;
+        padding: 9px 10px;
+        font-size: 0.48rem;
+    }
+
+    .profile-quick-links-grid .px-card {
+        padding: 12px 8px;
+    }
+
+    .profile-quick-links-grid .px-card > div:first-child {
+        font-size: 1.3rem !important;
+    }
+
+    .profile-quick-links-grid .px-card > div:last-child {
+        font-size: 0.6rem;
     }
 }
 
@@ -234,18 +282,34 @@
 
     .profile-index-grid .px-btn,
     .profile-history-actions .px-btn {
-        min-height: 36px;
-        padding: 9px 10px;
-        font-size: 0.48rem;
+        min-height: 34px;
+        padding: 8px 8px;
+        font-size: 0.44rem;
     }
 
     .profile-main-actions {
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 8px;
+        gap: 6px;
     }
 
     .profile-history-actions {
         gap: 8px;
+    }
+
+    .profile-index-grid .px-text-muted {
+        font-size: 0.62rem;
+    }
+
+    .profile-quick-links-grid .px-card {
+        padding: 10px 6px;
+    }
+
+    .profile-quick-links-grid .px-card > div:first-child {
+        font-size: 1.12rem !important;
+    }
+
+    .profile-quick-links-grid .px-card > div:last-child {
+        font-size: 0.54rem;
     }
 }
 </style>
