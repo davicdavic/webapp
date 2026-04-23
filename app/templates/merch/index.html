@@ -24,15 +24,15 @@
         <!-- Filter Tabs -->
         <div class="filter-tabs">
             <a href="{{ url_for('merch.index', search=search, seller=seller_search, sort=sort) }}" 
-               class="filter-tab {% if not product_type %}active{% endif %}">
+               class="filter-tab {% if not product_type %}active{% endif %}" data-turbo-preload="true">
                 All
             </a>
             <a href="{{ url_for('merch.index', type='digital', search=search, seller=seller_search, sort=sort) }}" 
-               class="filter-tab {% if product_type == 'digital' %}active{% endif %}">
+               class="filter-tab {% if product_type == 'digital' %}active{% endif %}" data-turbo-preload="true">
                 Digital
             </a>
             <a href="{{ url_for('merch.index', type='physical', search=search, seller=seller_search, sort=sort) }}" 
-               class="filter-tab {% if product_type == 'physical' %}active{% endif %}">
+               class="filter-tab {% if product_type == 'physical' %}active{% endif %}" data-turbo-preload="true">
                 Physical
             </a>
         </div>
@@ -120,7 +120,7 @@
                 <div class="product-seller">
                     {% if product.seller %}
                     <span class="seller-label">Sold by:</span>
-                    <a href="{{ url_for('merch.seller_profile', seller_id=product.seller_id) }}" class="seller-link">
+                    <a href="{{ url_for('merch.seller_profile', seller_id=product.seller_id) }}" class="seller-link" data-turbo-preload="true">
                         <span class="seller-avatar">{{ product.seller.username[0]|upper }}</span>
                         {{ product.seller.username }}
                     </a>
@@ -158,7 +158,7 @@
                     
                     {% if product.quantity > 0 %}
                     <a href="{{ url_for('merch.product_detail', product_id=product.id) }}" 
-                       class="px-btn px-btn-primary px-btn-sm">
+                       class="px-btn px-btn-primary px-btn-sm" data-turbo-preload="true">
                         Buy Now
                     </a>
                     {% else %}

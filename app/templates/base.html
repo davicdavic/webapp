@@ -38,6 +38,10 @@
     <style>
         :root {
             --transition-speed: 0.2s;
+            --page-shell-ease: cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        html {
+            scroll-behavior: smooth;
         }
         body { 
             visibility: visible; 
@@ -69,39 +73,34 @@
             display: block;
         }
         
-        /* Loading state for faster perceived performance */
-        body.turbo-loading #main-content {
-            opacity: 0.6;
-            transition: opacity 0.15s ease-out;
-        }
-        
-        body:not(.turbo-loading) #main-content {
-            opacity: 1;
-            transition: opacity 0.2s ease-in;
-        }
-
         /* Pro-feel page transitions (fast, subtle) */
-        #main-content {
+        body.page-app #main-content {
             will-change: opacity, transform;
+            min-height: 60vh;
+            transition:
+                opacity 0.14s var(--page-shell-ease),
+                transform 0.14s var(--page-shell-ease),
+                filter 0.14s var(--page-shell-ease);
         }
 
-        body.turbo-loading #main-content {
-            opacity: 0.85;
-            transform: translateY(1px);
+        body.page-app.turbo-loading #main-content {
+            opacity: 0.82;
+            transform: translateY(3px) scale(0.997);
+            filter: saturate(0.96);
         }
 
-        body.turbo-loaded #main-content {
-            animation: pageEnter 0.12s cubic-bezier(0.2, 0.8, 0.2, 1);
+        body.page-app.turbo-loaded #main-content {
+            animation: pageEnter 0.16s var(--page-shell-ease);
         }
 
         @keyframes pageEnter {
-            0% { opacity: 0.9; transform: translateY(2px); }
-            100% { opacity: 1; transform: translateY(0); }
+            0% { opacity: 0.88; transform: translateY(4px) scale(0.997); }
+            100% { opacity: 1; transform: translateY(0) scale(1); }
         }
 
         @media (prefers-reduced-motion: reduce) {
-            body.turbo-loading #main-content,
-            body.turbo-loaded #main-content {
+            body.page-app.turbo-loading #main-content,
+            body.page-app.turbo-loaded #main-content {
                 animation: none !important;
                 transform: none !important;
             }
@@ -124,6 +123,73 @@
         button:active, .px-btn:active {
             transform: scale(0.96);
             box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+        }
+
+        .nav-pending {
+            opacity: 0.74 !important;
+            transform: translateY(1px) scale(0.985) !important;
+        }
+
+        .page-glow {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            opacity: 0;
+            background:
+                radial-gradient(circle at top, rgba(241, 214, 79, 0.08), transparent 34%),
+                radial-gradient(circle at bottom right, rgba(93, 132, 214, 0.08), transparent 28%);
+            transition: opacity 0.18s var(--page-shell-ease);
+            z-index: 25;
+        }
+
+        body.page-app.turbo-loading .page-glow {
+            opacity: 1;
+        }
+
+        @media (min-width: 768px) {
+            body.page-app .px-panel,
+            body.page-app .px-card,
+            body.page-app .chan-post,
+            body.page-app .product-card,
+            body.page-app .seller-product-card,
+            body.page-app .mission-card {
+                content-visibility: auto;
+                contain-intrinsic-size: 280px;
+            }
+        }
+
+        body.page-app .store-page,
+        body.page-app .missions-page,
+        body.page-app .seller-hub-page,
+        body.page-app .seller-store-page,
+        body.page-app .product-page,
+        body.page-app .chan-board-index,
+        body.page-app .profile-index-grid,
+        body.page-app #history-results {
+            animation: shellLiftIn 0.18s var(--page-shell-ease);
+        }
+
+        @keyframes shellLiftIn {
+            0% { opacity: 0.9; transform: translateY(4px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+
+        body.page-app .loading-container,
+        body.page-app #history-loading,
+        body.page-app #feed-loading-indicator,
+        body.page-app .end-message {
+            border: 2px solid rgba(93, 132, 214, 0.14);
+            background: linear-gradient(90deg, rgba(255,255,255,0.9), rgba(240,245,255,0.95), rgba(255,255,255,0.9));
+            background-size: 200% 100%;
+            animation: shellShimmer 1.2s linear infinite;
+            border-radius: 12px;
+            padding: 12px 16px;
+            box-shadow: 0 10px 24px rgba(40, 64, 120, 0.06);
+        }
+
+        @keyframes shellShimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
         }
         
         /* 3D TNNO Animation CSS */
@@ -271,7 +337,9 @@
     </script>
 
 </head>
-<body>
+<body class="{% if request.endpoint and request.endpoint.startswith('game.') %}page-game{% else %}page-app{% endif %}">
+    <div class="page-glow" aria-hidden="true"></div>
+
     <!-- Turbo Progress Bar -->
     <div class="turbo-progress-bar" id="progress-bar"></div>
 
@@ -417,11 +485,14 @@
     <script>
         let instantFeedbackInitialized = false;
         let mobileNavInitialized = false;
+        let navigationUxInitialized = false;
+        let pendingNavElement = null;
 
         // Initialize on both DOMContentLoaded and turbo:load for reliability
         function initPage() {
             initLazyLoading();
             initInstantFeedback();
+            initNavigationUx();
             initMobileNavToggle();
             ensureCsrfTokens();
             initFlashAutoHide();
@@ -524,33 +595,86 @@
             if (instantFeedbackInitialized) return;
             instantFeedbackInitialized = true;
             const prefetched = new Set();
-            // Add loading class to body during navigation
+
+            function canPrefetchLink(link) {
+                if (!link) return false;
+                if (link.target === '_blank' || link.hasAttribute('download')) return false;
+                if (link.dataset.turbo === 'false') return false;
+                const href = link.getAttribute('href') || '';
+                return href.startsWith('/') && !href.startsWith('//') && !href.startsWith('/logout');
+            }
+
+            function prefetchLink(link) {
+                if (!canPrefetchLink(link)) return;
+                const href = link.getAttribute('href');
+                if (prefetched.has(href)) return;
+                if (document.head.querySelector(`link[rel="prefetch"][href="${href}"]`)) {
+                    prefetched.add(href);
+                    return;
+                }
+                const preload = document.createElement('link');
+                preload.rel = 'prefetch';
+                preload.href = href;
+                document.head.appendChild(preload);
+                prefetched.add(href);
+            }
+
+            document.addEventListener('pointerenter', function(e) {
+                const link = e.target.closest('a');
+                if (link) prefetchLink(link);
+            }, true);
+
+            document.addEventListener('focusin', function(e) {
+                const link = e.target.closest('a');
+                if (link) prefetchLink(link);
+            });
+
+            document.addEventListener('touchstart', function(e) {
+                const link = e.target.closest('a');
+                if (link) prefetchLink(link);
+            }, { passive: true });
+        }
+
+        function initNavigationUx() {
+            if (navigationUxInitialized) return;
+            if (document.body.classList.contains('page-game')) return;
+            navigationUxInitialized = true;
+
+            function clearPending() {
+                document.body.classList.remove('turbo-loading');
+                if (pendingNavElement) {
+                    pendingNavElement.classList.remove('nav-pending');
+                    pendingNavElement = null;
+                }
+            }
+
+            document.addEventListener('click', function(e) {
+                const link = e.target.closest('a');
+                if (!link) return;
+                if (link.dataset.turbo === 'false') return;
+                if (link.target === '_blank' || link.hasAttribute('download')) return;
+                const href = link.getAttribute('href') || '';
+                if (!href.startsWith('/') || href.startsWith('//')) return;
+                if (pendingNavElement && pendingNavElement !== link) {
+                    pendingNavElement.classList.remove('nav-pending');
+                }
+                pendingNavElement = link;
+                pendingNavElement.classList.add('nav-pending');
+                document.body.classList.add('turbo-loading');
+            }, true);
+
+            document.addEventListener('turbo:before-visit', function() {
+                document.body.classList.add('turbo-loading');
+            });
+
             document.addEventListener('turbo:before-fetch-request', function() {
                 document.body.classList.add('turbo-loading');
             });
-            
-            document.addEventListener('turbo:load', function() {
-                document.body.classList.remove('turbo-loading');
-            });
-            
-            // Preload images on hover
-            document.addEventListener('mouseover', function(e) {
-                if (e.target.tagName === 'A') {
-                    const href = e.target.getAttribute('href');
-                    if (href && href.startsWith('/') && !href.startsWith('//')) {
-                        if (prefetched.has(href)) return;
-                        if (document.head.querySelector(`link[rel="prefetch"][href="${href}"]`)) {
-                            prefetched.add(href);
-                            return;
-                        }
-                        const link = document.createElement('link');
-                        link.rel = 'prefetch';
-                        link.href = href;
-                        document.head.appendChild(link);
-                        prefetched.add(href);
-                    }
-                }
-            });
+
+            document.addEventListener('turbo:render', clearPending);
+            document.addEventListener('turbo:load', clearPending);
+            document.addEventListener('turbo:fetch-request-error', clearPending);
+            window.addEventListener('pageshow', clearPending);
         }
 
         function initMobileNavToggle() {
@@ -611,17 +735,20 @@
             let interval;
             
             function startProgress() {
+                if (!progressBar) return;
+                clearInterval(interval);
                 progress = 0;
                 progressBar.style.width = '0%';
                 progressBar.style.opacity = '1';
                 interval = setInterval(function() {
-                    progress += 15;
-                    if (progress > 85) progress = 85;
+                    progress += 12;
+                    if (progress > 78) progress = 78;
                     progressBar.style.width = progress + '%';
-                }, 80);
+                }, 90);
             }
             
             function stopProgress() {
+                if (!progressBar) return;
                 clearInterval(interval);
                 progressBar.style.width = '100%';
                 setTimeout(function() {
@@ -636,17 +763,7 @@
             document.addEventListener('turbo:before-fetch-request', startProgress);
             document.addEventListener('turbo:load', stopProgress);
             document.addEventListener('turbo:frame-load', stopProgress);
-            
-            // Fallback for non-Turbo links
-            document.addEventListener('click', function(e) {
-                const link = e.target.closest('a[data-turbo-preload="true"]');
-                if (link && !link.hasAttribute('download') && link.target !== '_blank') {
-                    const href = link.getAttribute('href');
-                    if (href && href.startsWith('/')) {
-                        startProgress();
-                    }
-                }
-            });
+            document.addEventListener('turbo:fetch-request-error', stopProgress);
             
             window.addEventListener('load', stopProgress);
         })();

@@ -12,11 +12,11 @@
                 <h1>Available Missions</h1>
             </div>
             <div class="missions-actions">
-                <a href="{{ url_for('missions.my_submissions') }}" class="px-btn px-btn-secondary">
+                <a href="{{ url_for('missions.my_submissions') }}" class="px-btn px-btn-secondary" data-turbo-preload="true">
                     📋 My Submissions
                 </a>
                 {% if current_user.is_admin() %}
-                <a href="{{ url_for('missions.create') }}" class="px-btn px-btn-primary">
+                <a href="{{ url_for('missions.create') }}" class="px-btn px-btn-primary" data-turbo-preload="true">
                     + Create Mission
                 </a>
                 {% endif %}
@@ -113,15 +113,15 @@
                 {% endif %}
                 
                 {% if not my_sub %}
-                <a href="{{ url_for('missions.view', mission_id=mission.id) }}" class="px-btn px-btn-primary px-btn-sm">
+                <a href="{{ url_for('missions.view', mission_id=mission.id) }}" class="px-btn px-btn-primary px-btn-sm" data-turbo-preload="true">
                     ▶ Start Mission
                 </a>
                 {% elif my_sub.status == 'completed' or my_sub.status == 'rejected' %}
-                <a href="{{ url_for('missions.view', mission_id=mission.id) }}" class="px-btn px-btn-primary px-btn-sm">
+                <a href="{{ url_for('missions.view', mission_id=mission.id) }}" class="px-btn px-btn-primary px-btn-sm" data-turbo-preload="true">
                     {% if my_sub.status == 'rejected' %}↻ Submit Again{% else %}▶ Start Again{% endif %}
                 </a>
                 {% elif my_sub.status == 'pending' %}
-                <a href="{{ url_for('missions.view', mission_id=mission.id) }}" class="px-btn px-btn-secondary px-btn-sm">
+                <a href="{{ url_for('missions.view', mission_id=mission.id) }}" class="px-btn px-btn-secondary px-btn-sm" data-turbo-preload="true">
                     👁 View
                 </a>
                 {% endif %}

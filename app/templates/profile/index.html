@@ -43,15 +43,15 @@
         </div>
 
         <div class="px-mt-lg profile-main-actions">
-            <a href="{{ url_for('profile.edit') }}" class="px-btn px-btn-secondary">Edit Profile</a>
-            <a href="{{ url_for('profile.settings') }}" class="px-btn px-btn-secondary">Settings</a>
-            <a href="{{ url_for('profile.leaderboard') }}" class="px-btn px-btn-primary">Leaderboard</a>
+            <a href="{{ url_for('profile.edit') }}" class="px-btn px-btn-secondary" data-turbo-preload="true">Edit Profile</a>
+            <a href="{{ url_for('profile.settings') }}" class="px-btn px-btn-secondary" data-turbo-preload="true">Settings</a>
+            <a href="{{ url_for('profile.leaderboard') }}" class="px-btn px-btn-primary" data-turbo-preload="true">Leaderboard</a>
             {% if current_user.can_sell %}
-            <a href="{{ url_for('profile.seller_hub') }}" class="px-btn px-btn-secondary">Seller Update</a>
+            <a href="{{ url_for('profile.seller_hub') }}" class="px-btn px-btn-secondary" data-turbo-preload="true">Seller Update</a>
             {% elif seller_request_summary and seller_request_summary.status == 'pending' %}
-            <a href="{{ url_for('profile.seller_hub') }}" class="px-btn px-btn-secondary">Seller Pending</a>
+            <a href="{{ url_for('profile.seller_hub') }}" class="px-btn px-btn-secondary" data-turbo-preload="true">Seller Pending</a>
             {% else %}
-            <a href="{{ url_for('profile.seller_hub') }}" class="px-btn px-btn-primary">Become Seller</a>
+            <a href="{{ url_for('profile.seller_hub') }}" class="px-btn px-btn-primary" data-turbo-preload="true">Become Seller</a>
             {% endif %}
         </div>
     </div>

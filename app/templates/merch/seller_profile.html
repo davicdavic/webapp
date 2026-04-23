@@ -198,13 +198,17 @@
 
 .seller-hero {
     display: grid;
-    gap: 16px;
+    gap: 0;
+    overflow: visible;
+    padding-bottom: 18px;
 }
 
 .seller-cover-frame {
     border: 4px solid var(--px-border);
     overflow: hidden;
-    min-height: 220px;
+    min-height: 180px;
+    max-height: 220px;
+    border-radius: 18px 18px 12px 12px;
     background: linear-gradient(180deg, #edf3ff, #d7e4fb);
 }
 
@@ -212,7 +216,7 @@
 .seller-cover-fallback {
     width: 100%;
     height: 100%;
-    min-height: 220px;
+    min-height: 180px;
     display: block;
     object-fit: cover;
 }
@@ -250,6 +254,10 @@
     grid-template-columns: 148px minmax(0, 1fr);
     gap: 18px;
     align-items: start;
+    margin: -58px 18px 0;
+    padding: 0;
+    position: relative;
+    z-index: 2;
 }
 
 .seller-avatar-block {
@@ -261,15 +269,25 @@
 .seller-avatar-fallback {
     width: 128px;
     height: 128px;
-    border: 4px solid var(--px-border);
+    border: 5px solid #ffffff;
+    border-radius: 18px;
     object-fit: cover;
     background: linear-gradient(180deg, #f5dc7d, #dba43f);
     color: #2d2414;
+    box-shadow: 0 16px 28px rgba(29, 49, 94, 0.18);
     display: flex;
     align-items: center;
     justify-content: center;
     font-family: 'Press Start 2P', cursive;
     font-size: 1.4rem;
+}
+
+.seller-hero-copy {
+    background: rgba(255, 255, 255, 0.92);
+    border: 3px solid rgba(93, 132, 214, 0.14);
+    border-radius: 18px;
+    padding: 18px 20px;
+    box-shadow: 0 12px 24px rgba(40, 64, 120, 0.08);
 }
 
 .seller-kicker,
@@ -468,9 +486,13 @@
 }
 
 @media (max-width: 960px) {
-    .seller-content-grid,
-    .seller-hero-card {
+    .seller-content-grid {
         grid-template-columns: 1fr;
+    }
+
+    .seller-hero-card {
+        grid-template-columns: 112px minmax(0, 1fr);
+        margin: -42px 14px 0;
     }
 
     .seller-avatar-block {
@@ -506,7 +528,7 @@
     .seller-cover-frame,
     .seller-cover-image,
     .seller-cover-fallback {
-        min-height: 160px;
+        min-height: 140px;
     }
 
     .seller-avatar-image,
@@ -514,6 +536,7 @@
         width: 96px;
         height: 96px;
         font-size: 1rem;
+        border-width: 4px;
     }
 
     .seller-cover-title {
@@ -526,8 +549,10 @@
     }
 
     .seller-hero-card {
+        grid-template-columns: 1fr;
         justify-items: center;
         text-align: center;
+        margin: -34px 10px 0;
     }
 
     .seller-hero-copy,

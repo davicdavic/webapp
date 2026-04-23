@@ -11,9 +11,9 @@
             <p class="px-text-muted">Manage your seller request, renew your seller plan, and keep your store ready like a real app.</p>
         </div>
         <div class="seller-hub-top-actions">
-            <a href="{{ url_for('profile.index') }}" class="px-btn px-btn-secondary">Back to Profile</a>
+            <a href="{{ url_for('profile.index') }}" class="px-btn px-btn-secondary" data-turbo-preload="true">Back to Profile</a>
             {% if current_user.can_sell %}
-            <a href="{{ url_for('merch.seller_profile', seller_id=current_user.id) }}" class="px-btn px-btn-primary">Open My Store</a>
+            <a href="{{ url_for('merch.seller_profile', seller_id=current_user.id) }}" class="px-btn px-btn-primary" data-turbo-preload="true">Open My Store</a>
             {% endif %}
         </div>
     </div>
@@ -69,8 +69,8 @@
                 <button type="submit" class="px-btn px-btn-primary">
                     {% if current_user.seller_active %}Renew Seller Plan{% else %}Activate Seller Plan{% endif %}
                 </button>
-                <a href="{{ url_for('merch.admin_create') }}" class="px-btn px-btn-secondary">Add Product</a>
-                <a href="{{ url_for('merch.admin_sales') }}" class="px-btn px-btn-secondary">Sales History</a>
+                <a href="{{ url_for('merch.admin_create') }}" class="px-btn px-btn-secondary" data-turbo-preload="true">Add Product</a>
+                <a href="{{ url_for('merch.admin_sales') }}" class="px-btn px-btn-secondary" data-turbo-preload="true">Sales History</a>
             </div>
         </form>
     </section>

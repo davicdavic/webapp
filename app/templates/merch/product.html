@@ -14,7 +14,7 @@
     data-user-rating="{{ product_feedback.user_rating }}"
     data-user-reaction="{{ product_feedback.user_reaction }}"
 >
-    <a href="{{ url_for('merch.index') }}" class="px-btn px-btn-sm product-back-link">← Back to Store</a>
+    <a href="{{ url_for('merch.index') }}" class="px-btn px-btn-sm product-back-link" data-turbo-preload="true">← Back to Store</a>
 
     {% set gallery = product.gallery_filenames %}
     <div class="product-layout">
@@ -86,7 +86,7 @@
                     <div class="product-section-label">Seller</div>
                     <div class="product-seller-line">
                         <span class="px-text-muted">Sold by:</span>
-                        <a href="{{ url_for('merch.seller_profile', seller_id=product.seller_id) }}" class="product-seller-link">
+                        <a href="{{ url_for('merch.seller_profile', seller_id=product.seller_id) }}" class="product-seller-link" data-turbo-preload="true">
                             {{ product.seller.username }}
                         </a>
                         {% if seller_sales is not none %}
