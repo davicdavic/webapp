@@ -242,6 +242,15 @@ body {
 }
 
 @media (max-width: 640px) {
+    .chan-op-container {
+        margin-bottom: var(--chan-space-md);
+    }
+
+    .chan-post {
+        padding: var(--chan-space-md);
+        margin-bottom: var(--chan-space-xs);
+    }
+
     .chan-input--compact {
         max-width: 100%;
     }
@@ -719,6 +728,21 @@ max-height: 250px;
     .chan-post-header {
         font-size: 12px;
         flex-wrap: wrap;
+        gap: 4px 6px;
+        line-height: 1.2;
+    }
+
+    .chan-author-avatar {
+        width: 20px;
+        height: 20px;
+        margin-right: 6px;
+    }
+
+    .chan-user-id,
+    .chan-post-header .post-id,
+    .chan-post-header .date,
+    .chan-post-header .post-number {
+        font-size: 11px;
     }
 
     .chan-mobile-fab {
@@ -751,6 +775,16 @@ max-height: 250px;
         padding: var(--chan-space-xs) var(--chan-space-sm);
         font-size: 12px;
     }
+
+    .chan-post-content {
+        font-size: 14px;
+        line-height: 1.45;
+        margin: var(--chan-space-xs) 0;
+    }
+
+    .chan-post-footer {
+        font-size: 12px;
+    }
 }
 
 /* Small mobile */
@@ -771,8 +805,24 @@ max-height: 250px;
         font-size: 20px;
     }
 
+    .chan-post {
+        padding: 10px;
+    }
+
+    .chan-post-header {
+        font-size: 11px;
+        gap: 3px 5px;
+    }
+
+    .chan-author-avatar {
+        width: 18px;
+        height: 18px;
+        margin-right: 5px;
+    }
+
     .chan-post-content {
-        font-size: 14px;
+        font-size: 13px;
+        line-height: 1.4;
     }
 
     .chan-reply {
@@ -790,6 +840,10 @@ max-height: 250px;
 
     .chan-file-info {
         font-size: 10px;
+    }
+
+    .chan-post-footer {
+        font-size: 11px;
     }
 }
 

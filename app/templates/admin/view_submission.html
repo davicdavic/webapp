@@ -56,9 +56,9 @@
             <label>Proof/Screenshot</label>
             {% if submission.mission_photo %}
             <div class="px-photo-container">
-                <img src="{{ url_for('static', filename=submission.mission_photo|static_path) }}" alt="Submission proof" class="px-submission-photo">
+                <img src="{{ submission.mission_photo|media_url }}" alt="Submission proof" class="px-submission-photo">
             </div>
-            <a href="{{ url_for('static', filename=submission.mission_photo|static_path) }}" target="_blank" class="px-btn px-btn-secondary px-btn-sm px-mt-md">
+            <a href="{{ submission.mission_photo|media_url }}" target="_blank" class="px-btn px-btn-secondary px-btn-sm px-mt-md">
                 Open Full Size
             </a>
             {% else %}

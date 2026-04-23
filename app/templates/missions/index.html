@@ -64,7 +64,7 @@
         <div class="mission-card {% if mission.image_path %}has-image{% endif %}" data-mission-id="{{ mission.id }}">
             {% if mission.image_path %}
             <div class="mission-card-image">
-                <img src="{{ url_for('static', filename=mission.image_path|static_path) }}" alt="{{ mission.title }}">
+                <img src="{{ mission.image_path|media_url }}" alt="{{ mission.title }}">
             </div>
             {% endif %}
             <div class="mission-card-body">
@@ -541,6 +541,21 @@
 
     .px-stats-compact {
         grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+    }
+
+    .px-stats-compact .px-stat-card {
+        padding: 10px 8px;
+        min-height: 0;
+    }
+
+    .px-stats-compact .px-stat-value {
+        font-size: 1rem;
+        margin-bottom: 4px;
+    }
+
+    .px-stats-compact .px-stat-label {
+        font-size: 0.62rem;
     }
 
     .missions-feed {
@@ -590,7 +605,21 @@
     }
 
     .px-stats-compact {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 6px;
+    }
+
+    .px-stats-compact .px-stat-card {
+        padding: 8px 6px;
+    }
+
+    .px-stats-compact .px-stat-value {
+        font-size: 0.88rem;
+        margin-bottom: 2px;
+    }
+
+    .px-stats-compact .px-stat-label {
+        font-size: 0.54rem;
     }
 
     .mission-card.has-image {

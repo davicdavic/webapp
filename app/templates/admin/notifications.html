@@ -51,7 +51,7 @@
                 <td style="max-width: 320px;">{{ n.message }}</td>
                 <td>
                     {% if n.attachment_path %}
-                    <a href="{{ url_for('static', filename=n.attachment_path) }}" target="_blank" class="px-btn px-btn-sm px-btn-secondary">View</a>
+                    <a href="{{ n.attachment_path|media_url }}" target="_blank" class="px-btn px-btn-sm px-btn-secondary">View</a>
                     {% else %}
                     <span class="px-text-muted">-</span>
                     {% endif %}

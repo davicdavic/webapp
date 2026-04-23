@@ -9,7 +9,7 @@
     <section class="seller-hero px-panel">
         <div class="seller-cover-frame">
             {% if seller.seller_cover_photo %}
-            <img src="{{ url_for('static', filename=seller.seller_cover_photo|static_path) }}" alt="{{ seller.username }} store cover" class="seller-cover-image">
+            <img src="{{ seller.seller_cover_photo|media_url }}" alt="{{ seller.username }} store cover" class="seller-cover-image">
             {% else %}
             <div class="seller-cover-fallback">
                 <div class="seller-cover-pattern"></div>
@@ -21,7 +21,7 @@
         <div class="seller-hero-card">
             <div class="seller-avatar-block">
                 {% if seller.profile_pic %}
-                <img src="{{ url_for('static', filename=seller.profile_pic|static_path) }}" alt="{{ seller.username }}" class="seller-avatar-image">
+                <img src="{{ seller.profile_pic|media_url }}" alt="{{ seller.username }}" class="seller-avatar-image">
                 {% else %}
                 <div class="seller-avatar-fallback">{{ seller.username[0]|upper }}</div>
                 {% endif %}

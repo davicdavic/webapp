@@ -5,7 +5,7 @@
             <div class="chan-post">
                 <div class="chan-post-header">
                     {% if post.author and post.author.profile_pic %}
-                    <img src="{{ url_for('static', filename=post.author.profile_pic) }}" alt="Avatar" class="chan-author-avatar">
+                    <img src="{{ post.author.profile_pic|media_url }}" alt="Avatar" class="chan-author-avatar">
                     {% endif %}
                     <a href="{{ url_for('profile.view', username=post.author.username) if post.author else '#' }}" class="chan-author-link">
                         <span class="name">{{ post.author.username if post.author else 'Unknown' }}</span>
@@ -27,7 +27,7 @@
                 {% if post.image_path %}
                 <div class="chan-post-image-container">
                     <img
-                        data-src="{{ url_for('static', filename=post.image_path|static_path) }}"
+                        data-src="{{ post.image_path|media_url }}"
                         alt="Post image"
                         class="chan-post-image lazy-image"
                         loading="lazy"
@@ -49,4 +49,3 @@
         {% endif %}
     {% endfor %}
 {% endif %}
-

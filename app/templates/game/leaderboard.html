@@ -188,7 +188,7 @@
                 <td class="px-player-col">
                     <div class="px-player-info">
                         {% if row_user and row_user.profile_pic %}
-                        <img src="{{ url_for('static', filename=row_user.profile_pic) }}" alt="{{ row_user.username }}" class="px-player-avatar">
+                        <img src="{{ row_user.profile_pic|media_url }}" alt="{{ row_user.username }}" class="px-player-avatar">
                         {% else %}
                         <div class="px-player-avatar px-avatar-default">{{ row_user.username[0]|upper if row_user else '?' }}</div>
                         {% endif %}

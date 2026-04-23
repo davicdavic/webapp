@@ -74,6 +74,10 @@ def create_app(config_name=None):
                 'Optional production env vars missing; deposit creation/webhook features may be limited: %s',
                 ', '.join(optional_missing)
             )
+        if os.environ.get('RENDER') and not app.extensions.get('cloudinary_enabled'):
+            app.logger.warning(
+                'Cloudinary is not configured on Render. Uploaded images saved to local disk will disappear after restarts or redeploys.'
+            )
 
     # Rate limiting (per-IP + per-user)
     from app.security import enforce_rate_limit
@@ -333,6 +337,17 @@ def register_filters(app):
     import os
     from flask import url_for
 
+    def _is_remote_media(value):
+        return bool(value and str(value).lower().startswith(('http://', 'https://')))
+
+    def _normalize_static_upload_path(value):
+        if not value:
+            return ''
+        v = str(value).lstrip('/')
+        if v.startswith('uploads/'):
+            return v
+        return f"uploads/{v}"
+
     @app.template_filter('format_number')
     def format_number(value):
         """Format number with thousands separator, supports up to 99,999,999"""
@@ -357,13 +372,8 @@ def register_filters(app):
         """Generate an optimized img tag with lazy loading"""
         if not path:
             return ''
-        
-        # Ensure path starts with uploads/
-        if not path.startswith('uploads/'):
-            path = f'uploads/{path}'
-        
-        # Get the static URL
-        img_url = url_for('static', filename=path)
+
+        img_url = path if _is_remote_media(path) else url_for('static', filename=_normalize_static_upload_path(path))
         
         # Generate unique placeholder based on path for consistent loading
         placeholder = f'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"%3E%3Crect fill="%23f0f0f0" width="400" height="300"/%3E%3C/svg%3E'
@@ -382,17 +392,30 @@ def register_filters(app):
         """
         if not value:
             return ''
-        # strip any leading slashes
-        v = value.lstrip('/')
-        if v.startswith('uploads/'):
-            return v
-        return f"uploads/{v}"
+        if _is_remote_media(value):
+            return str(value)
+        return _normalize_static_upload_path(value)
+
+    @app.template_filter('media_url')
+    def media_url(value):
+        """Return a direct URL for remote media or a static URL for local uploads."""
+        if not value:
+            return ''
+        if _is_remote_media(value):
+            return str(value)
+        return url_for('static', filename=_normalize_static_upload_path(value))
+
+    @app.template_global('media_url')
+    def media_url_global(value):
+        return media_url(value)
 
     @app.template_filter('static_exists')
     def static_exists(value):
         """Return True if the normalized static file exists on disk."""
         if not value:
             return False
+        if _is_remote_media(value):
+            return True
         path = static_path(value)
         full = os.path.join(app.static_folder, path)
         return os.path.exists(full)

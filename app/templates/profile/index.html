@@ -10,7 +10,7 @@
     <div class="px-panel">
         <div class="px-text-center">
             {% if user.profile_pic %}
-                <img src="{{ url_for('static', filename=user.profile_pic) }}" alt="{{ user.username }}" class="px-profile-pic-lg" style="max-width: 180px; height: auto; border-radius: 8px; margin-bottom: 20px; border: 3px solid #ddd;">
+                <img src="{{ user.profile_pic|media_url }}" alt="{{ user.username }}" class="px-profile-pic-lg" style="max-width: 180px; height: auto; border-radius: 8px; margin-bottom: 20px; border: 3px solid #ddd;">
             {% else %}
                 <div class="px-avatar px-avatar-lg" style="margin: 0 auto 20px;">
                     {{ user.username[0]|upper }}
@@ -42,10 +42,17 @@
             </div>
         </div>
 
-        <div class="px-mt-lg">
-            <a href="{{ url_for('profile.edit') }}" class="px-btn px-btn-secondary px-btn-block">Edit Profile</a>
-            <a href="{{ url_for('profile.settings') }}" class="px-btn px-btn-secondary px-btn-block px-mt-md">Settings</a>
-            <a href="{{ url_for('profile.leaderboard') }}" class="px-btn px-btn-primary px-btn-block px-mt-md">Leaderboard</a>
+        <div class="px-mt-lg profile-main-actions">
+            <a href="{{ url_for('profile.edit') }}" class="px-btn px-btn-secondary">Edit Profile</a>
+            <a href="{{ url_for('profile.settings') }}" class="px-btn px-btn-secondary">Settings</a>
+            <a href="{{ url_for('profile.leaderboard') }}" class="px-btn px-btn-primary">Leaderboard</a>
+            {% if current_user.can_sell %}
+            <a href="#seller-tools" class="px-btn px-btn-secondary">Seller Update</a>
+            {% elif seller_request_summary and seller_request_summary.status == 'pending' %}
+            <a href="#seller-tools" class="px-btn px-btn-secondary">Seller Pending</a>
+            {% else %}
+            <a href="#seller-tools" class="px-btn px-btn-primary">Become Seller</a>
+            {% endif %}
         </div>
     </div>
 
@@ -97,6 +104,20 @@
                     </span>
                     {% endif %}
                 </a>
+                <a href="#seller-tools" class="px-card px-text-center" data-turbo-preload="false">
+                    <div style="font-size: 2rem;">
+                        {% if current_user.can_sell %}🏪{% elif seller_request_summary and seller_request_summary.status == 'pending' %}⏳{% else %}🛒{% endif %}
+                    </div>
+                    <div>
+                        {% if current_user.can_sell %}
+                        Seller Update
+                        {% elif seller_request_summary and seller_request_summary.status == 'pending' %}
+                        Seller Pending
+                        {% else %}
+                        Become Seller
+                        {% endif %}
+                    </div>
+                </a>
                 {% if current_user.can_sell %}
                 <a href="{{ url_for('merch.admin_products') }}" class="px-card px-text-center" data-turbo-preload="true">
                     <div style="font-size: 2rem;">🛍️</div>
@@ -113,6 +134,133 @@
                 </a>
                 {% endif %}
             </div>
+        </div>
+
+        <div class="px-panel px-mt-lg" id="seller-tools">
+            <div class="px-panel-header">
+                <h2 class="px-panel-title">Seller Hub</h2>
+            </div>
+
+            {% if current_user.is_seller %}
+            <p class="px-text-muted px-mb-md">
+                {% if current_user.seller_active %}
+                Your seller account is active.
+                {% else %}
+                Your seller account is approved, but the plan needs renewal.
+                {% endif %}
+            </p>
+            <div class="seller-status-strip px-mb-md">
+                <div class="px-card">
+                    <strong>Status</strong>
+                    <div>
+                        {% if current_user.seller_active %}Active Seller{% else %}Seller Plan Expired{% endif %}
+                    </div>
+                </div>
+                <div class="px-card">
+                    <strong>Plan Expiry</strong>
+                    <div>{{ current_user.seller_expires_at.strftime('%Y-%m-%d') if current_user.seller_expires_at else 'No active plan' }}</div>
+                </div>
+            </div>
+            <form method="POST" action="{{ url_for('profile.seller_plan') }}">
+                <div class="seller-plan-grid px-mb-md">
+                    {% for key, plan in seller_plans.items() %}
+                    <label class="px-card seller-plan-card">
+                        <input type="radio" name="plan" value="{{ key }}" {% if loop.first %}checked{% endif %}>
+                        <span>{{ plan.label }}</span>
+                        <strong>{{ plan.cost|format_number }} TNNO</strong>
+                    </label>
+                    {% endfor %}
+                </div>
+                <div class="seller-hub-actions">
+                    <button type="submit" class="px-btn px-btn-primary">
+                        {% if current_user.seller_active %}Renew Seller{% else %}Activate Seller{% endif %}
+                    </button>
+                    {% if current_user.can_sell %}
+                    <a href="{{ url_for('merch.admin_create') }}" class="px-btn px-btn-secondary">Add Product</a>
+                    {% endif %}
+                </div>
+            </form>
+            {% else %}
+            <p class="px-text-muted px-mb-md">
+                Open your store from your profile. Submit your request here and manage it without going into settings.
+            </p>
+            {% if seller_request_summary %}
+            <div class="px-card px-mb-md">
+                <strong>Latest Request</strong>
+                <div>Status: {{ seller_request_summary.status|title }}</div>
+                <div>Plan: {{ (seller_request_summary.plan_key or 'N/A')|upper }}{% if seller_request_summary.plan_cost %} • {{ seller_request_summary.plan_cost|format_number }} TNNO{% endif %}</div>
+                {% if seller_request_summary.status == 'pending' %}
+                <div class="px-text-muted">Your request is under review right now.</div>
+                {% elif seller_request_summary.status == 'rejected' %}
+                <div class="px-text-muted">You can update the information below and submit again.</div>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            {% if not seller_request_summary or seller_request_summary.status != 'pending' %}
+            <form method="POST" action="{{ url_for('profile.seller_request') }}" enctype="multipart/form-data">
+                <div class="seller-form-grid">
+                    <div class="px-form-group">
+                        <label class="px-form-label">Real Name</label>
+                        <input type="text" name="real_name" class="px-input" required>
+                    </div>
+                    <div class="px-form-group">
+                        <label class="px-form-label">Country</label>
+                        <input type="text" name="country" class="px-input" required>
+                    </div>
+                    <div class="px-form-group">
+                        <label class="px-form-label">City</label>
+                        <input type="text" name="city" class="px-input" required>
+                    </div>
+                    <div class="px-form-group">
+                        <label class="px-form-label">Phone Number</label>
+                        <input type="text" name="phone" class="px-input" required>
+                    </div>
+                </div>
+                <div class="px-form-group">
+                    <label class="px-form-label">What Products Will You Sell?</label>
+                    <textarea name="product_description" class="px-input" rows="4" required></textarea>
+                </div>
+                <div class="px-form-group">
+                    <label class="px-form-label">Choose Seller Plan</label>
+                    <div class="seller-plan-grid">
+                        {% for key, plan in seller_plans.items() %}
+                        <label class="px-card seller-plan-card">
+                            <input type="radio" name="plan" value="{{ key }}" {% if loop.first %}checked{% endif %}>
+                            <span>{{ plan.label }}</span>
+                            <strong>{{ plan.cost|format_number }} TNNO</strong>
+                        </label>
+                        {% endfor %}
+                    </div>
+                    <p class="px-text-sm px-text-muted">Plan fee is charged now. If rejected, coins are refunded.</p>
+                </div>
+                <div class="seller-form-grid">
+                    <div class="px-form-group">
+                        <label class="px-form-label">ID Card Front</label>
+                        <input type="file" name="id_front" class="px-input" accept="image/*" required>
+                    </div>
+                    <div class="px-form-group">
+                        <label class="px-form-label">ID Card Back</label>
+                        <input type="file" name="id_back" class="px-input" accept="image/*" required>
+                    </div>
+                </div>
+                <div class="px-form-group">
+                    <label class="px-form-label">Location</label>
+                    <div class="px-flex px-gap-sm seller-location-row">
+                        <input type="text" id="sellerLocationText" name="location_text" class="px-input" placeholder="Tap to share location" readonly>
+                        <button type="button" id="sellerLocationBtn" class="px-btn px-btn-secondary">Use My Location</button>
+                    </div>
+                    <input type="hidden" id="sellerLocationLat" name="location_lat">
+                    <input type="hidden" id="sellerLocationLng" name="location_lng">
+                </div>
+                <div class="seller-hub-actions">
+                    <button type="submit" class="px-btn px-btn-primary">
+                        {% if seller_request_summary and seller_request_summary.status == 'rejected' %}Update Seller Request{% else %}Submit Seller Request{% endif %}
+                    </button>
+                </div>
+            </form>
+            {% endif %}
+            {% endif %}
         </div>
 
         <div class="px-panel px-mt-lg">
@@ -144,7 +292,7 @@
                         <div class="px-text-sm">{{ n.message }}</div>
                         {% if n.kind == 'user' and n.row.attachment_path %}
                         <div class="px-text-sm">
-                            <a href="{{ url_for('static', filename=n.row.attachment_path) }}" target="_blank">View Attachment</a>
+                            <a href="{{ n.row.attachment_path|media_url }}" target="_blank">View Attachment</a>
                         </div>
                         {% endif %}
                         {% if n.kind == 'seller' and n.row.notification_type == 'new_message' %}
@@ -170,6 +318,42 @@
 </div>
 
 <style>
+.profile-main-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.profile-main-actions .px-btn {
+    margin-top: 0;
+}
+
+.seller-status-strip,
+.seller-plan-grid,
+.seller-form-grid,
+.seller-hub-actions {
+    display: grid;
+    gap: 12px;
+}
+
+.seller-status-strip,
+.seller-plan-grid,
+.seller-form-grid,
+.seller-hub-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.seller-plan-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    cursor: pointer;
+}
+
+.seller-plan-card input {
+    align-self: flex-start;
+}
+
 @media (max-width: 768px) {
     .profile-index-grid {
         grid-template-columns: 1fr !important;
@@ -181,9 +365,12 @@
     }
 
     .profile-index-grid .px-btn {
-        width: 100%;
         padding: 12px 14px;
         font-size: 0.52rem;
+    }
+
+    .seller-location-row {
+        flex-direction: column;
     }
 }
 
@@ -199,7 +386,7 @@
 
 @media (max-width: 480px) {
     .profile-quick-links-grid {
-        grid-template-columns: 1fr !important;
+        grid-template-columns: 1fr 1fr !important;
     }
 
     .profile-index-grid .px-btn,
@@ -209,9 +396,52 @@
         font-size: 0.48rem;
     }
 
+    .profile-main-actions,
+    .seller-status-strip,
+    .seller-plan-grid,
+    .seller-form-grid,
+    .seller-hub-actions {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+    }
+
     .profile-history-actions {
         gap: 8px;
     }
 }
 </style>
+
+<script>
+const sellerLocationBtn = document.getElementById('sellerLocationBtn');
+const sellerLocationText = document.getElementById('sellerLocationText');
+const sellerLocationLat = document.getElementById('sellerLocationLat');
+const sellerLocationLng = document.getElementById('sellerLocationLng');
+
+if (sellerLocationBtn) {
+    sellerLocationBtn.addEventListener('click', function() {
+        if (!navigator.geolocation) {
+            alert('Location is not supported on this device.');
+            return;
+        }
+        sellerLocationBtn.disabled = true;
+        sellerLocationBtn.textContent = 'Getting location...';
+        navigator.geolocation.getCurrentPosition(
+            function(pos) {
+                const lat = pos.coords.latitude.toFixed(6);
+                const lng = pos.coords.longitude.toFixed(6);
+                sellerLocationLat.value = lat;
+                sellerLocationLng.value = lng;
+                sellerLocationText.value = `Lat ${lat}, Lng ${lng}`;
+                sellerLocationBtn.textContent = 'Location Added';
+                sellerLocationBtn.disabled = false;
+            },
+            function() {
+                sellerLocationBtn.textContent = 'Use My Location';
+                sellerLocationBtn.disabled = false;
+                alert('Unable to get location. Please allow location access.');
+            }
+        );
+    });
+}
+</script>
 {% endblock %}

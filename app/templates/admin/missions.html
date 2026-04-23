@@ -36,7 +36,7 @@
             <tr>
                 <td>
                     {% if mission.image_path %}
-                    <img src="{{ url_for('static', filename=mission.image_path|static_path) }}" alt="{{ mission.title }}" class="admin-mission-thumb">
+                    <img src="{{ mission.image_path|media_url }}" alt="{{ mission.title }}" class="admin-mission-thumb">
                     {% else %}
                     <div class="admin-mission-thumb admin-mission-thumb-empty">No Image</div>
                     {% endif %}

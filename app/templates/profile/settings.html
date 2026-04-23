@@ -73,7 +73,7 @@
         </form>
     </div>
 
-    <!-- Update Email -->
+    <!-- Account Settings -->
     <div class="px-panel">
         <div class="px-panel-header">
             <h2 class="px-panel-title">Account Settings</h2>
@@ -112,7 +112,7 @@
             </div>
 
             <button type="submit" class="px-btn px-btn-primary px-btn-block">
-                Update Email
+                Update Username &amp; Email
             </button>
         </form>
 
@@ -137,105 +137,6 @@
         </div>
     </div>
 </div>
-
-<div class="px-panel px-mt-lg">
-    <div class="px-panel-header">
-        <h2 class="px-panel-title">Seller Request</h2>
-    </div>
-
-    {% if current_user.is_seller %}
-        <p class="px-text-muted">Seller access approved.</p>
-        {% if seller_expires_at %}
-            <p class="px-text-sm">Seller plan expires on <strong>{{ seller_expires_at.strftime('%Y-%m-%d') }}</strong>.</p>
-        {% else %}
-            <p class="px-text-sm px-text-muted">No active plan. Please choose a seller plan below.</p>
-        {% endif %}
-    {% elif seller_request %}
-        <p class="px-text-sm">Latest request status: <strong>{{ seller_request.status|title }}</strong></p>
-        <p class="px-text-sm">Plan: <strong>{{ (seller_request.plan_key or 'N/A')|upper }}</strong> • {{ (seller_request.plan_cost or 0)|format_number }} TNNO</p>
-        {% if seller_request.status == 'pending' %}
-            <p class="px-text-muted">Your request is under review.</p>
-        {% endif %}
-    {% else %}
-        <p class="px-text-muted">Request seller access to open your store.</p>
-    {% endif %}
-
-    {% if not current_user.is_seller %}
-    <details class="px-mt-md">
-        <summary class="px-btn px-btn-secondary">Request Seller Access</summary>
-        <form method="POST" action="{{ url_for('profile.seller_request') }}" enctype="multipart/form-data" class="px-mt-md">
-            <div class="px-form-group">
-                <label class="px-form-label">Real Name</label>
-                <input type="text" name="real_name" class="px-input" required>
-            </div>
-            <div class="px-form-group">
-                <label class="px-form-label">Country</label>
-                <input type="text" name="country" class="px-input" required>
-            </div>
-            <div class="px-form-group">
-                <label class="px-form-label">City</label>
-                <input type="text" name="city" class="px-input" required>
-            </div>
-            <div class="px-form-group">
-                <label class="px-form-label">Phone Number</label>
-                <input type="text" name="phone" class="px-input" required>
-            </div>
-            <div class="px-form-group">
-                <label class="px-form-label">What Products Will You Sell?</label>
-                <textarea name="product_description" class="px-input" rows="4" required></textarea>
-            </div>
-            <div class="px-form-group">
-                <label class="px-form-label">Choose Seller Plan</label>
-                {% for key, plan in seller_plans.items() %}
-                <label class="px-flex px-gap-sm px-items-center px-mb-sm">
-                    <input type="radio" name="plan" value="{{ key }}" {% if loop.first %}checked{% endif %}>
-                    <span>{{ plan.label }} - {{ plan.cost|format_number }} TNNO</span>
-                </label>
-                {% endfor %}
-                <p class="px-text-sm px-text-muted">Plan fee is charged now. If rejected, coins are refunded.</p>
-            </div>
-            <div class="px-form-group">
-                <label class="px-form-label">ID Card Front</label>
-                <input type="file" name="id_front" class="px-input" accept="image/*" required>
-            </div>
-            <div class="px-form-group">
-                <label class="px-form-label">ID Card Back</label>
-                <input type="file" name="id_back" class="px-input" accept="image/*" required>
-            </div>
-            <div class="px-form-group">
-                <label class="px-form-label">Location</label>
-                <div class="px-flex px-gap-sm seller-location-row">
-                    <input type="text" id="sellerLocationText" name="location_text" class="px-input" placeholder="Tap to share location" readonly>
-                    <button type="button" id="sellerLocationBtn" class="px-btn px-btn-secondary">Use My Location</button>
-                </div>
-                <input type="hidden" id="sellerLocationLat" name="location_lat">
-                <input type="hidden" id="sellerLocationLng" name="location_lng">
-            </div>
-            <button type="submit" class="px-btn px-btn-primary px-btn-block">Submit Request</button>
-        </form>
-    </details>
-    {% endif %}
-</div>
-
-{% if current_user.is_seller %}
-<div class="px-panel px-mt-lg">
-    <div class="px-panel-header">
-        <h2 class="px-panel-title">Seller Plan</h2>
-    </div>
-    <p class="px-text-muted px-mb-md">Keep your store active by selecting a plan.</p>
-    <form method="POST" action="{{ url_for('profile.seller_plan') }}">
-        <div class="px-form-group">
-            {% for key, plan in seller_plans.items() %}
-            <label class="px-flex px-gap-sm px-items-center px-mb-sm">
-                <input type="radio" name="plan" value="{{ key }}" {% if loop.first %}checked{% endif %}>
-                <span>{{ plan.label }} - {{ plan.cost|format_number }} TNNO</span>
-            </label>
-            {% endfor %}
-        </div>
-        <button type="submit" class="px-btn px-btn-primary px-btn-block">Activate / Renew</button>
-    </form>
-</div>
-{% endif %}
 
 <style>
 .px-alert {
@@ -309,24 +210,16 @@
     }
 
     .settings-header-row .px-btn,
-    .px-btn-block,
-    details summary.px-btn,
-    #sellerLocationBtn {
+    .px-btn-block {
         width: 100%;
         padding: 12px 14px;
         font-size: 0.52rem;
-    }
-
-    .seller-location-row {
-        flex-direction: column;
     }
 }
 
 @media (max-width: 480px) {
     .settings-header-row .px-btn,
-    .px-btn-block,
-    details summary.px-btn,
-    #sellerLocationBtn {
+    .px-btn-block {
         min-height: 36px;
         padding: 9px 10px;
         font-size: 0.48rem;
@@ -339,38 +232,6 @@
 </style>
 
 <script>
-const locationBtn = document.getElementById('sellerLocationBtn');
-const locationText = document.getElementById('sellerLocationText');
-const locationLat = document.getElementById('sellerLocationLat');
-const locationLng = document.getElementById('sellerLocationLng');
-
-if (locationBtn) {
-    locationBtn.addEventListener('click', function() {
-        if (!navigator.geolocation) {
-            alert('Location is not supported on this device.');
-            return;
-        }
-        locationBtn.disabled = true;
-        locationBtn.textContent = 'Getting location...';
-        navigator.geolocation.getCurrentPosition(
-            function(pos) {
-                const lat = pos.coords.latitude.toFixed(6);
-                const lng = pos.coords.longitude.toFixed(6);
-                locationLat.value = lat;
-                locationLng.value = lng;
-                locationText.value = `Lat ${lat}, Lng ${lng}`;
-                locationBtn.textContent = 'Location Added';
-                locationBtn.disabled = false;
-            },
-            function() {
-                locationBtn.textContent = 'Use My Location';
-                locationBtn.disabled = false;
-                alert('Unable to get location. Please allow location access.');
-            }
-        );
-    });
-}
-
 function promptDelete(event) {
     event.preventDefault();
     const userInput = prompt('Type "DELETE" to confirm account deletion (this cannot be undone):', '');

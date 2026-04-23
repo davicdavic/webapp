@@ -27,7 +27,7 @@
         
         <div class="px-text-center">
             {% if current_user.profile_pic %}
-                <img src="{{ url_for('static', filename=current_user.profile_pic) }}" alt="{{ current_user.username }}" class="px-profile-pic-preview" style="max-width: 200px; height: auto;">
+                <img src="{{ current_user.profile_pic|media_url }}" alt="{{ current_user.username }}" class="px-profile-pic-preview" style="max-width: 200px; height: auto;">
             {% else %}
                 <div class="px-avatar px-avatar-xl" style="margin: 0 auto;">
                     {{ current_user.username[0]|upper }}
@@ -53,7 +53,7 @@
                 <label for="seller_cover_photo" class="px-form-label">Seller Store Cover</label>
                 <div class="seller-cover-preview-wrap">
                     {% if current_user.seller_cover_photo %}
-                    <img src="{{ url_for('static', filename=current_user.seller_cover_photo|static_path) }}" alt="Store cover" class="seller-cover-preview">
+                    <img src="{{ current_user.seller_cover_photo|media_url }}" alt="Store cover" class="seller-cover-preview">
                     {% else %}
                     <div class="seller-cover-preview seller-cover-preview-placeholder">
                         <span>Store Cover Banner</span>

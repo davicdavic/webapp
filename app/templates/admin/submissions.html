@@ -51,7 +51,7 @@
                 </td>
                 <td>
                     {% if sub.mission_photo and sub.mission_photo|static_exists %}
-                        <a href="{{ url_for('static', filename=sub.mission_photo|static_path) }}" target="_blank" class="px-btn px-btn-sm px-btn-secondary">
+                        <a href="{{ sub.mission_photo|media_url }}" target="_blank" class="px-btn px-btn-sm px-btn-secondary">
                             View
                         </a>
                     {% elif sub.mission_photo %}

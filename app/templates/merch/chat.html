@@ -59,7 +59,7 @@
                         <div class="chat-bubble-inner">
                             {% if message.message_type == 'image' and message.image_path %}
                             <img
-                                src="{{ url_for('static', filename=message.image_path|static_path) }}"
+                                src="{{ message.image_path|media_url }}"
                                 alt="Chat image"
                                 class="chat-image"
                             >
@@ -92,6 +92,7 @@
                 id="chatForm"
                 class="chat-composer"
                 data-turbo="false"
+                novalidate
             >
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="chat-preview hidden" id="imagePreview"></div>

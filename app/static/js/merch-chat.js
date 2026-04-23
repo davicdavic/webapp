@@ -548,6 +548,7 @@
             chatForm.setAttribute('data-turbo', 'false');
             chatForm.setAttribute('target', '_top');
             chatForm.action = sendUrl;
+            chatForm.noValidate = true;
         }
 
         chatForm?.addEventListener('submit', async function(event) {
@@ -604,6 +605,10 @@
                 }
             }
         });
+        chatForm?.addEventListener('submit', function(event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }, true);
 
         fetchMessages(false);
         chatMessages?.addEventListener('scroll', function() {

@@ -44,7 +44,7 @@
             <p><strong>Code:</strong> {{ submission.code }}</p>
             {% endif %}
             {% if submission.mission_photo and submission.mission_photo|static_exists %}
-            <p><strong>Photo:</strong> <img src="{{ url_for('static', filename=submission.mission_photo|static_path) }}" alt="Submission" style="max-width: 200px;"></p>
+            <p><strong>Photo:</strong> <img src="{{ submission.mission_photo|media_url }}" alt="Submission" style="max-width: 200px;"></p>
             {% elif submission.mission_photo %}
             <p><strong>Photo:</strong> <span class="px-text-danger">image file missing</span></p>
             {% endif %}

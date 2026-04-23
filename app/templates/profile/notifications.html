@@ -16,7 +16,7 @@
                 <div class="px-text-sm">{{ n.row.message }}</div>
                 {% if n.kind == 'user' and n.row.attachment_path %}
                 <div class="px-text-sm">
-                    <a href="{{ url_for('static', filename=n.row.attachment_path) }}" target="_blank">View Attachment</a>
+                    <a href="{{ n.row.attachment_path|media_url }}" target="_blank">View Attachment</a>
                 </div>
                 {% endif %}
                 {% if n.kind == 'seller' and n.row.notification_type == 'new_message' %}

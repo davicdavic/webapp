@@ -67,8 +67,8 @@
                 </td>
                 <td data-label="Proof">
                     {% if submission.mission_photo and submission.mission_photo|static_exists %}
-                        <a href="{{ url_for('static', filename=submission.mission_photo|static_path) }}" target="_blank">
-                            <img src="{{ url_for('static', filename=submission.mission_photo|static_path) }}" alt="Mission proof" class="submission-proof-image">
+                        <a href="{{ submission.mission_photo|media_url }}" target="_blank">
+                            <img src="{{ submission.mission_photo|media_url }}" alt="Mission proof" class="submission-proof-image">
                         </a>
                     {% elif submission.mission_photo %}
                         <span class="px-text-danger">missing</span>

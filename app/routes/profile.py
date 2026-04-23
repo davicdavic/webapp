@@ -34,7 +34,9 @@ def index():
             notif_count=cached.get('notif_count'),
             latest_notifications=cached.get('latest_notifications'),
             sales_unread_count=cached.get('sales_unread_count'),
-            chat_unread_count=cached.get('chat_unread_count')
+            chat_unread_count=cached.get('chat_unread_count'),
+            seller_request_summary=cached.get('seller_request_summary'),
+            seller_plans=SELLER_PLANS
         )
 
     seller_rating = None
@@ -80,12 +82,26 @@ def index():
             .filter(MerchOrder.purchased_at > last_seen)\
             .count()
 
+    latest_request = SellerRequest.query.filter_by(user_id=current_user.id)\
+        .order_by(SellerRequest.created_at.desc())\
+        .first()
+    seller_request_summary = None
+    if latest_request:
+        seller_request_summary = {
+            'status': latest_request.status,
+            'plan_key': latest_request.plan_key,
+            'plan_cost': latest_request.plan_cost,
+            'created_at': latest_request.created_at,
+            'updated_at': latest_request.updated_at,
+        }
+
     cache.set(cache_key, {
         'seller_rating': seller_rating,
         'notif_count': notif_count,
         'latest_notifications': latest_notifications,
         'sales_unread_count': sales_unread_count,
-        'chat_unread_count': chat_unread_count
+        'chat_unread_count': chat_unread_count,
+        'seller_request_summary': seller_request_summary
     }, timeout=20)
     return render_template(
         'profile/index.html',
@@ -94,7 +110,9 @@ def index():
         notif_count=notif_count,
         latest_notifications=latest_notifications,
         sales_unread_count=sales_unread_count,
-        chat_unread_count=chat_unread_count
+        chat_unread_count=chat_unread_count,
+        seller_request_summary=seller_request_summary,
+        seller_plans=SELLER_PLANS
     )
 
 
@@ -222,17 +240,7 @@ def settings():
         
         return redirect(url_for('profile.settings'))
 
-    latest_request = SellerRequest.query.filter_by(user_id=current_user.id)\
-        .order_by(SellerRequest.created_at.desc())\
-        .first()
-
-    return render_template(
-        'profile/settings.html',
-        seller_request=latest_request,
-        seller_plans=SELLER_PLANS,
-        seller_expires_at=current_user.seller_expires_at,
-        seller_active=current_user.seller_active
-    )
+    return render_template('profile/settings.html')
 
 
 @profile_bp.route('/notifications')
@@ -275,11 +283,11 @@ def seller_request():
     ).first()
     if existing_pending:
         flash('You already have a pending seller request.', 'error')
-        return redirect(url_for('profile.settings'))
+        return redirect(url_for('profile.index'))
 
     if current_user.is_seller:
         flash('Your seller access is already approved.', 'info')
-        return redirect(url_for('profile.settings'))
+        return redirect(url_for('profile.index'))
 
     real_name = (request.form.get('real_name') or '').strip()
     country = (request.form.get('country') or '').strip()
@@ -297,21 +305,21 @@ def seller_request():
 
     if not all([real_name, country, city, phone, product_description]):
         flash('All seller request fields are required.', 'error')
-        return redirect(url_for('profile.settings'))
+        return redirect(url_for('profile.index'))
 
     if not plan:
         flash('Please choose a seller plan.', 'error')
-        return redirect(url_for('profile.settings'))
+        return redirect(url_for('profile.index'))
 
     if not id_front or not id_front.filename or not id_back or not id_back.filename:
         flash('ID card front and back images are required.', 'error')
-        return redirect(url_for('profile.settings'))
+        return redirect(url_for('profile.index'))
 
     id_front_path = save_uploaded_file(id_front, 'seller_ids')
     id_back_path = save_uploaded_file(id_back, 'seller_ids')
     if not id_front_path or not id_back_path:
         flash('ID images must be valid image files.', 'error')
-        return redirect(url_for('profile.settings'))
+        return redirect(url_for('profile.index'))
 
     cost = int(plan['cost'])
     try:
@@ -354,10 +362,11 @@ def seller_request():
     except ValidationError:
         db.session.rollback()
         flash(f'Insufficient TNNO. Need {cost:,}, you have {int(current_user.coins):,}.', 'error')
-        return redirect(url_for('profile.settings'))
+        return redirect(url_for('profile.index'))
 
+    cache.delete(f'profile_index_{current_user.id}')
     flash('Seller request submitted. Plan fee charged. Admin will review it soon.', 'success')
-    return redirect(url_for('profile.settings'))
+    return redirect(url_for('profile.index'))
 
 
 @profile_bp.route('/seller-plan', methods=['POST'])
@@ -366,7 +375,7 @@ def seller_plan():
     """Purchase or renew seller subscription."""
     if not current_user.is_seller and not current_user.is_admin():
         flash('Seller access must be approved before purchasing a plan.', 'error')
-        return redirect(url_for('profile.settings'))
+        return redirect(url_for('profile.index'))
 
     plan_key = (request.form.get('plan') or '').strip()
     plan = SELLER_PLANS.get(plan_key)
@@ -391,10 +400,11 @@ def seller_plan():
     except ValidationError:
         db.session.rollback()
         flash(f'Insufficient TNNO. Need {cost:,}, you have {int(current_user.coins):,}.', 'error')
-        return redirect(request.referrer or url_for('profile.settings'))
+        return redirect(request.referrer or url_for('profile.index'))
 
+    cache.delete(f'profile_index_{current_user.id}')
     flash('Seller plan activated successfully!', 'success')
-    return redirect(request.referrer or url_for('profile.settings'))
+    return redirect(request.referrer or url_for('profile.index'))
 
 
 @profile_bp.route('/delete-account', methods=['POST'])
