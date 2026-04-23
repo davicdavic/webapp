@@ -92,7 +92,7 @@ def index():
             'plan_key': latest_request.plan_key,
             'plan_cost': latest_request.plan_cost,
             'created_at': latest_request.created_at,
-            'updated_at': latest_request.updated_at,
+            'reviewed_at': latest_request.reviewed_at,
         }
 
     cache.set(cache_key, {
