@@ -37,7 +37,7 @@ def index():
             user=current_user,
             seller_rating=cached.get('seller_rating'),
             notif_count=cached.get('notif_count'),
-            latest_notifications=cached.get('latest_notifications'),
+            latest_notifications=latest_notifications[:5],
             sales_unread_count=cached.get('sales_unread_count'),
             chat_unread_count=cached.get('chat_unread_count'),
             seller_request_summary=cached.get('seller_request_summary'),
@@ -53,53 +53,32 @@ def index():
         ).filter(SellerRating.seller_id == current_user.id).first()
         seller_rating = {'avg': float(rating_result[0] or 0), 'count': int(rating_result[1] or 0)}
 
-    # Combined notification query - single query for both user and seller notifications
-    combined_notif_query = db.session.query(
-        UserNotification.id,
-        UserNotification.message,
-        UserNotification.created_at,
-        UserNotification.attachment_path,
-        db.literal_column("'user'").label('kind'),
-        db.literal_column("NULL").label('notification_type'),
-        db.literal_column("NULL").label('related_id')
-    ).filter(UserNotification.user_id == current_user.id).union_all(
-        db.session.query(
-            SellerNotification.id,
-            SellerNotification.message,
-            SellerNotification.created_at,
-            db.literal_column("NULL").label('attachment_path'),
-            db.literal_column("'seller'").label('kind'),
-            SellerNotification.notification_type,
-            SellerNotification.related_id
-        ).filter(SellerNotification.seller_id == current_user.id)
-    ).subquery()
-
-    # Get combined notifications (sorted by time)
-    latest_notifications_raw = db.session.query(
-        combined_notif_query.c.id,
-        combined_notif_query.c.message,
-        combined_notif_query.c.created_at,
-        combined_notif_query.c.attachment_path,
-        combined_notif_query.c.kind,
-        combined_notif_query.c.notification_type,
-        combined_notif_query.c.related_id
-    ).order_by(combined_notif_query.c.created_at.desc()).limit(10).all()
-
+    # Get user notifications - simple separate queries
+    user_notifications = UserNotification.query.filter_by(user_id=current_user.id)\
+        .order_by(UserNotification.created_at.desc()).limit(5).all()
+    
+    # Get seller notifications
+    seller_notifications = SellerNotification.query.filter_by(seller_id=current_user.id)\
+        .order_by(SellerNotification.created_at.desc()).limit(5).all()
+    
+    # Combine notifications
     latest_notifications = []
-    for row in latest_notifications_raw:
+    for n in user_notifications:
         latest_notifications.append({
-            'kind': row.kind,
-            'row': type('NotificationRow', (), {
-                'id': row.id,
-                'message': row.message,
-                'created_at': row.created_at,
-                'attachment_path': row.attachment_path,
-                'notification_type': row.notification_type,
-                'related_id': row.related_id
-            })(),
-            'created_at': row.created_at,
-            'message': row.message
+            'kind': 'user',
+            'row': n,
+            'created_at': n.created_at,
+            'message': n.message
         })
+    for n in seller_notifications:
+        latest_notifications.append({
+            'kind': 'seller',
+            'row': n,
+            'created_at': n.created_at,
+            'message': n.message
+        })
+    latest_notifications.sort(key=lambda x: x['created_at'] or datetime.min, reverse=True)
+    latest_notifications = latest_notifications[:5]
 
     # Combined unread count - single query
     user_unread = db.session.query(func.count(UserNotification.id))\
@@ -142,15 +121,15 @@ def index():
             'reviewed_at': latest_request.reviewed_at,
         }
 
-    # Cache for 90 seconds (reduced from longer to keep data fresh)
+    # Cache for 30 seconds (reduced for fresher data)
+    # Cache only simple data types to avoid serialization issues
     cache.set(cache_key, {
         'seller_rating': seller_rating,
         'notif_count': notif_count,
-        'latest_notifications': latest_notifications,
         'sales_unread_count': sales_unread_count,
         'chat_unread_count': chat_unread_count,
         'seller_request_summary': seller_request_summary
-    }, timeout=90)
+    }, timeout=30)
 
     return render_template(
         'profile/index.html',

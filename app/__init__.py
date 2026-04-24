@@ -7,7 +7,7 @@ from flask import Flask, make_response, jsonify, flash, request, redirect, url_f
 from sqlalchemy import text, func
 from werkzeug.middleware.proxy_fix import ProxyFix
 from app.config import config
-from app.extensions import init_extensions, verify_database_connection, db, login_manager
+from app.extensions import init_extensions, verify_database_connection, db, login_manager, cache
 from app.datetime_utils import utc_now
 from app.services.cloudinary_service import CloudinaryService
 from app.game_state import init_game_state
