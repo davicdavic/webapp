@@ -68,12 +68,12 @@
                 class="chat-telegram-item"
             >
                 <div class="chat-avatar-frame">
-                    <div class="chat-avatar">{{ partner.username[0]|upper }}</div>
+                    <div class="chat-avatar">{{ (partner.username[0] if partner and partner.username else '?')|upper }}</div>
                 </div>
                 <div class="chat-item-main">
                     <div class="chat-item-top">
                         <div class="chat-name-wrap">
-                            <div class="chat-name">{{ partner.username }}</div>
+                            <div class="chat-name">{{ partner.username if partner and partner.username else 'Unknown User' }}</div>
                             <div class="chat-role-badge">
                                 {% if active_mode == 'buyer' %}
                                 Seller
@@ -94,8 +94,12 @@
                                 {% endif %}
                                 {% if last_message.message_type == 'image' %}
                                 <span>Photo sent</span>
+                                {% elif last_message.message_type == 'file' %}
+                                <span>File sent</span>
+                                {% elif last_message.content %}
+                                {{ last_message.content[:72] }}{% if last_message.content|length > 72 %}...{% endif %}
                                 {% else %}
-                                {{ last_message.content[:72] }}{% if last_message.content and last_message.content|length > 72 %}...{% endif %}
+                                <span class="px-text-muted">Message sent</span>
                                 {% endif %}
                             {% else %}
                             <span class="px-text-muted">No messages yet</span>
