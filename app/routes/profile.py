@@ -5,7 +5,7 @@ User profile management
 from datetime import datetime
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
 from flask_login import login_required, current_user
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 from app.extensions import db, cache
 from app.models import User, SellerRequest, SellerRating, Product, MerchOrder, UserNotification, SellerNotification, SellerChatConversation, SellerChatMessage
 from app.services import UserService
@@ -26,10 +26,9 @@ def _latest_seller_request_for_current_user():
 
 
 @profile_bp.route('/')
-
 @login_required
 def index():
-    """View own profile"""
+    """View own profile - Optimized with reduced database queries"""
     cache_key = f'profile_index_{current_user.id}'
     cached = cache.get(cache_key)
     if cached:
@@ -45,29 +44,72 @@ def index():
             seller_plans=SELLER_PLANS
         )
 
+    # Combined query for seller rating (if seller)
     seller_rating = None
     if current_user.is_seller:
-        avg_rating, rating_count = db.session.query(
-            db.func.coalesce(db.func.avg(SellerRating.rating), 0),
-            db.func.count(SellerRating.id)
+        rating_result = db.session.query(
+            func.coalesce(func.avg(SellerRating.rating), 0),
+            func.count(SellerRating.id)
         ).filter(SellerRating.seller_id == current_user.id).first()
-        seller_rating = {'avg': float(avg_rating or 0), 'count': int(rating_count or 0)}
-    user_notifications = UserNotification.query.filter_by(user_id=current_user.id)\
-        .order_by(UserNotification.created_at.desc())\
-        .limit(10).all()
-    seller_notifications = SellerNotification.query.filter_by(seller_id=current_user.id)\
-        .order_by(SellerNotification.created_at.desc())\
-        .limit(10).all()
-    latest_notifications = sorted(
-        [{'kind': 'user', 'row': n, 'created_at': n.created_at, 'message': n.message} for n in user_notifications] +
-        [{'kind': 'seller', 'row': n, 'created_at': n.created_at, 'message': n.message} for n in seller_notifications],
-        key=lambda item: item['created_at'] or datetime.min,
-        reverse=True
-    )[:5]
-    notif_count = UserNotification.query.filter_by(user_id=current_user.id, read_at=None).count()
-    notif_count += SellerNotification.query.filter_by(seller_id=current_user.id, is_read=False).count()
+        seller_rating = {'avg': float(rating_result[0] or 0), 'count': int(rating_result[1] or 0)}
 
-    chat_unread_count = db.session.query(SellerChatMessage)\
+    # Combined notification query - single query for both user and seller notifications
+    combined_notif_query = db.session.query(
+        UserNotification.id,
+        UserNotification.message,
+        UserNotification.created_at,
+        UserNotification.attachment_path,
+        db.literal_column("'user'").label('kind'),
+        db.literal_column("NULL").label('notification_type'),
+        db.literal_column("NULL").label('related_id')
+    ).filter(UserNotification.user_id == current_user.id).union_all(
+        db.session.query(
+            SellerNotification.id,
+            SellerNotification.message,
+            SellerNotification.created_at,
+            db.literal_column("NULL").label('attachment_path'),
+            db.literal_column("'seller'").label('kind'),
+            SellerNotification.notification_type,
+            SellerNotification.related_id
+        ).filter(SellerNotification.seller_id == current_user.id)
+    ).subquery()
+
+    # Get combined notifications (sorted by time)
+    latest_notifications_raw = db.session.query(
+        combined_notif_query.c.id,
+        combined_notif_query.c.message,
+        combined_notif_query.c.created_at,
+        combined_notif_query.c.attachment_path,
+        combined_notif_query.c.kind,
+        combined_notif_query.c.notification_type,
+        combined_notif_query.c.related_id
+    ).order_by(combined_notif_query.c.created_at.desc()).limit(10).all()
+
+    latest_notifications = []
+    for row in latest_notifications_raw:
+        latest_notifications.append({
+            'kind': row.kind,
+            'row': type('NotificationRow', (), {
+                'id': row.id,
+                'message': row.message,
+                'created_at': row.created_at,
+                'attachment_path': row.attachment_path,
+                'notification_type': row.notification_type,
+                'related_id': row.related_id
+            })(),
+            'created_at': row.created_at,
+            'message': row.message
+        })
+
+    # Combined unread count - single query
+    user_unread = db.session.query(func.count(UserNotification.id))\
+        .filter(UserNotification.user_id == current_user.id, UserNotification.read_at.is_(None)).scalar() or 0
+    seller_unread = db.session.query(func.count(SellerNotification.id))\
+        .filter(SellerNotification.seller_id == current_user.id, SellerNotification.is_read.is_(False)).scalar() or 0
+    notif_count = user_unread + seller_unread
+
+    # Chat unread count - single optimized query
+    chat_unread_count = db.session.query(func.count(SellerChatMessage.id))\
         .join(SellerChatConversation, SellerChatConversation.id == SellerChatMessage.conversation_id)\
         .filter(
             or_(
@@ -76,18 +118,19 @@ def index():
             ),
             SellerChatMessage.sender_id != current_user.id,
             SellerChatMessage.is_read.is_(False)
-        )\
-        .count()
+        ).scalar() or 0
+
+    # Sales unread count
     sales_unread_count = 0
     if current_user.can_sell and not current_user.is_admin():
         last_seen = current_user.seller_sales_seen_at or datetime(1970, 1, 1)
-        sales_unread_count = db.session.query(MerchOrder)\
+        sales_unread_count = db.session.query(func.count(MerchOrder.id))\
             .join(Product, Product.id == MerchOrder.product_id)\
             .filter(Product.seller_id == current_user.id)\
             .filter(MerchOrder.purchased_at.isnot(None))\
-            .filter(MerchOrder.purchased_at > last_seen)\
-            .count()
+            .filter(MerchOrder.purchased_at > last_seen).scalar() or 0
 
+    # Seller request summary
     latest_request = _latest_seller_request_for_current_user()
     seller_request_summary = None
     if latest_request:
@@ -99,6 +142,7 @@ def index():
             'reviewed_at': latest_request.reviewed_at,
         }
 
+    # Cache for 90 seconds (reduced from longer to keep data fresh)
     cache.set(cache_key, {
         'seller_rating': seller_rating,
         'notif_count': notif_count,
@@ -107,12 +151,13 @@ def index():
         'chat_unread_count': chat_unread_count,
         'seller_request_summary': seller_request_summary
     }, timeout=90)
+
     return render_template(
         'profile/index.html',
         user=current_user,
         seller_rating=seller_rating,
         notif_count=notif_count,
-        latest_notifications=latest_notifications,
+        latest_notifications=latest_notifications[:5],
         sales_unread_count=sales_unread_count,
         chat_unread_count=chat_unread_count,
         seller_request_summary=seller_request_summary,

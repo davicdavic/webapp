@@ -73,42 +73,32 @@
             display: block;
         }
         
-        /* Pro-feel page transitions (fast, subtle) */
+        /* Pro-feel page transitions (ultra-fast, nearly instant) */
         body.page-app #main-content {
             will-change: opacity, transform;
             min-height: 60vh;
-            transition:
-                opacity 0.14s var(--page-shell-ease),
-                transform 0.14s var(--page-shell-ease),
-                filter 0.14s var(--page-shell-ease);
+            transition: none !important; /* Disable CSS transitions for instant feel */
         }
 
         body.page-app.turbo-loading #main-content {
-            opacity: 0.82;
-            transform: translateY(3px) scale(0.997);
-            filter: saturate(0.96);
+            opacity: 0.85;
         }
 
         body.page-app.turbo-loaded #main-content {
-            animation: pageEnter 0.16s var(--page-shell-ease);
-        }
-
-        @keyframes pageEnter {
-            0% { opacity: 0.88; transform: translateY(4px) scale(0.997); }
-            100% { opacity: 1; transform: translateY(0) scale(1); }
+            /* No animation - instant appearance for fast feel */
+            opacity: 1;
         }
 
         @media (prefers-reduced-motion: reduce) {
             body.page-app.turbo-loading #main-content,
             body.page-app.turbo-loaded #main-content {
-                animation: none !important;
-                transform: none !important;
+                opacity: 1;
             }
         }
         
         /* Immediate feedback on link interactions */
         a {
-            transition: transform 0.1s ease, opacity 0.1s ease;
+            transition: none !important; /* Remove transitions for instant clicks */
         }
         
         a:active {
@@ -117,12 +107,11 @@
         
         /* Button immediate feedback */
         button, .px-btn {
-            transition: transform 0.08s ease, box-shadow 0.08s ease;
+            transition: none !important;
         }
         
         button:active, .px-btn:active {
             transform: scale(0.96);
-            box-shadow: 0 1px 2px rgba(0,0,0,0.2);
         }
 
         .nav-pending {
@@ -158,6 +147,7 @@
             }
         }
 
+        /* Instant page appearance - no animations for fast navigation feel */
         body.page-app .store-page,
         body.page-app .missions-page,
         body.page-app .seller-hub-page,
@@ -166,14 +156,10 @@
         body.page-app .chan-board-index,
         body.page-app .profile-index-grid,
         body.page-app #history-results {
-            animation: shellLiftIn 0.18s var(--page-shell-ease);
+            /* No animation - instant appearance for fastest navigation */
         }
 
-        @keyframes shellLiftIn {
-            0% { opacity: 0.9; transform: translateY(4px); }
-            100% { opacity: 1; transform: translateY(0); }
-        }
-
+        /* Minimal shimmer for loading indicators only */
         body.page-app .loading-container,
         body.page-app #history-loading,
         body.page-app #feed-loading-indicator,
@@ -181,15 +167,9 @@
             border: 2px solid rgba(93, 132, 214, 0.14);
             background: linear-gradient(90deg, rgba(255,255,255,0.9), rgba(240,245,255,0.95), rgba(255,255,255,0.9));
             background-size: 200% 100%;
-            animation: shellShimmer 1.2s linear infinite;
             border-radius: 12px;
             padding: 12px 16px;
             box-shadow: 0 10px 24px rgba(40, 64, 120, 0.06);
-        }
-
-        @keyframes shellShimmer {
-            0% { background-position: 200% 0; }
-            100% { background-position: -200% 0; }
         }
         
         /* 3D TNNO Animation CSS */
@@ -497,10 +477,8 @@
             ensureCsrfTokens();
             initFlashAutoHide();
             initWordAndFileLimits();
-            document.body.classList.add('turbo-loaded');
-            setTimeout(function() {
-                document.body.classList.remove('turbo-loaded');
-            }, 260);
+            // Instant feel - no animation delay
+            document.body.classList.remove('turbo-loading');
         }
 
         // Turbo events
@@ -728,7 +706,7 @@
             }, true);
         }
         
-        // Progress bar for page transitions
+        // Ultra-fast progress bar for page transitions
         (function() {
             const progressBar = document.getElementById('progress-bar');
             let progress = 0;
@@ -740,23 +718,25 @@
                 progress = 0;
                 progressBar.style.width = '0%';
                 progressBar.style.opacity = '1';
+                // Faster progress - 50ms intervals
                 interval = setInterval(function() {
-                    progress += 12;
-                    if (progress > 78) progress = 78;
+                    progress += 25;
+                    if (progress > 85) progress = 85;
                     progressBar.style.width = progress + '%';
-                }, 90);
+                }, 50);
             }
             
             function stopProgress() {
                 if (!progressBar) return;
                 clearInterval(interval);
                 progressBar.style.width = '100%';
+                // Minimal delay before hiding
                 setTimeout(function() {
                     progressBar.style.opacity = '0';
                     setTimeout(function() {
                         progressBar.style.width = '0%';
-                    }, 200);
-                }, 150);
+                    }, 100);
+                }, 80);
             }
             
             // Turbo Drive event listeners for progress bar

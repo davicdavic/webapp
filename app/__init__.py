@@ -4,7 +4,7 @@ Create and configure the Flask application with all blueprints and extensions
 """
 import os
 from flask import Flask, make_response, jsonify, flash, request, redirect, url_for
-from sqlalchemy import text
+from sqlalchemy import text, func
 from werkzeug.middleware.proxy_fix import ProxyFix
 from app.config import config
 from app.extensions import init_extensions, verify_database_connection, db, login_manager
@@ -316,16 +316,29 @@ def register_context_processors(app):
 
     @app.context_processor
     def inject_global_badges():
-        """Inject lightweight notification counts for global UI badges."""
+        """Inject lightweight notification counts for global UI badges - Optimized with caching"""
         try:
             if not current_user.is_authenticated:
                 return {}
-            from app.models import UserNotification, SellerNotification
-            notif_count = UserNotification.query.filter_by(user_id=current_user.id, read_at=None).count()
-            notif_count += SellerNotification.query.filter_by(seller_id=current_user.id, is_read=False).count()
-            return {
-                'global_notif_count': notif_count
-            }
+            
+            # Use cache for notification counts to avoid repeated DB queries
+            cache_key = f'global_notif_count_{current_user.id}'
+            cached_count = cache.get(cache_key)
+            if cached_count is not None:
+                return {'global_notif_count': cached_count}
+            
+            # Single combined query for both notification types
+            user_notif = db.session.query(func.count(UserNotification.id))\
+                .filter(UserNotification.user_id == current_user.id, UserNotification.read_at.is_(None)).scalar() or 0
+            
+            seller_notif = db.session.query(func.count(SellerNotification.id))\
+                .filter(SellerNotification.seller_id == current_user.id, SellerNotification.is_read.is_(False)).scalar() or 0
+            
+            total_count = user_notif + seller_notif
+            
+            # Cache for 30 seconds to reduce DB load
+            cache.set(cache_key, total_count, timeout=30)
+            return {'global_notif_count': total_count}
         except Exception as exc:
             app.logger.warning(f'Global badge injection skipped due to error: {exc}')
             return {'global_notif_count': 0}
