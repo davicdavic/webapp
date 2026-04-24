@@ -17,7 +17,7 @@ from app.services.history_service import HistoryService
 from app.services.pagination_service import PaginationService
 from app.services.wallet_service import WalletService
 from app.route_modules.marketplace_chat import register_marketplace_chat_routes
-from app.route_modules.marketplace_orders import register_marketplace_order_routes
+from app.route_modules.marketplace_orders import auto_cancel_overdue_physical_order, register_marketplace_order_routes
 from app.utils import save_uploaded_file, save_uploaded_image_optimized
 from sqlalchemy import func, or_, and_
 from sqlalchemy.orm import joinedload
@@ -942,6 +942,9 @@ def admin_delete(product_id):
 
     try:
         order_count = product.orders.count()
+        active_buyer_order_count = product.orders.filter(
+            MerchOrder.status.in_(['pending', 'completed', 'delivered'])
+        ).count()
 
         if order_count > 0:
             product_type = (product.product_type or 'digital').lower()
@@ -962,7 +965,14 @@ def admin_delete(product_id):
                 )
                 return redirect(url_for('merch.admin_products'))
 
-            flash('Cannot delete a product that has orders. Use Hide instead.', 'error')
+            if active_buyer_order_count == 0:
+                product.is_active = False
+                product.contact_link = DELETED_PRODUCT_MARKER
+                db.session.commit()
+                flash('Product removed from your store. Old refunded order history was kept safely.', 'success')
+                return redirect(url_for('merch.admin_products'))
+
+            flash('Cannot delete a product that still has buyers. Use Hide instead.', 'error')
             return redirect(url_for('merch.admin_products'))
 
         # Delete associated files from disk (thumbnail + product files)
@@ -1080,6 +1090,24 @@ def admin_sales():
         current_user.seller_sales_seen_at = now
         db.session.commit()
         cache.delete(f'profile_index_{current_user.id}')
+
+    overdue_physical_query = MerchOrder.query.join(Product, Product.id == MerchOrder.product_id)\
+        .filter(MerchOrder.product_type == 'physical')\
+        .filter(MerchOrder.status == 'pending')\
+        .filter(MerchOrder.delivery_eta.is_(None))
+    if not current_user.is_admin():
+        overdue_physical_query = overdue_physical_query.filter(Product.seller_id == current_user.id)
+    did_auto_cancel = False
+    for pending_order in overdue_physical_query.all():
+        if auto_cancel_overdue_physical_order(
+            pending_order,
+            now,
+            eta_set_deadline_days=ETA_SET_DEADLINE_DAYS,
+        ):
+            did_auto_cancel = True
+    if did_auto_cancel:
+        db.session.commit()
+
     page = request.args.get('page', 1, type=int)
     filter_type = (request.args.get('type') or '').strip().lower()
     per_page = 50
@@ -1128,7 +1156,9 @@ def admin_sales():
                 'fee_amount': fee_amount,
                 'payout': payout,
                 'eta_deadline': eta_deadline,
-                'eta_deadline_passed': now > eta_deadline
+                'eta_deadline_passed': now > eta_deadline,
+                'eta_min': now,
+                'eta_max': now + timedelta(days=ETA_MAX_DAYS),
             })
         else:
             if order.status != 'completed':

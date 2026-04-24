@@ -17,6 +17,44 @@ from app.services.wallet_service import WalletService
 from app.validators import ValidationError
 
 
+def auto_cancel_overdue_physical_order(order: MerchOrder, now, *, eta_set_deadline_days: int) -> bool:
+    """Auto-refund a pending physical order if no ETA was set in time."""
+    if not order:
+        return False
+
+    order_type = (order.product_type or order.product.product_type or 'digital').lower()
+    if order_type != 'physical' or order.status != 'pending' or order.delivery_eta:
+        return False
+
+    purchased_at = order.purchased_at or now
+    eta_deadline = purchased_at + timedelta(days=eta_set_deadline_days)
+    if now < eta_deadline:
+        return False
+
+    WalletService.credit_user(
+        user_id=order.user_id,
+        amount=order.total_price,
+        transaction_type='merch_order_refund_full',
+        reference_type='merch_order',
+        reference_id=order.id,
+        details='auto_no_eta',
+    )
+    if order.product:
+        order.product.physical_quantity = int(order.product.physical_quantity or 0) + int(order.quantity or 0)
+        if order.product.seller_id:
+            db.session.add(SellerNotification(
+                seller_id=order.product.seller_id,
+                notification_type='order_auto_cancelled',
+                title='Order Auto Cancelled',
+                message=f'Physical order for {order.product.name} was auto-cancelled because ETA was not set within 3 days.',
+                related_id=order.id,
+                related_type='order'
+            ))
+    order.status = 'refunded'
+    order.refunded_at = now
+    return True
+
+
 def register_marketplace_order_routes(merch_bp, *, seller_active_fn, attach_cancel_metadata_fn,
                                       calculate_cancel_split_fn, eta_set_deadline_days: int):
     @merch_bp.route('/buy/<int:product_id>', methods=['POST'])
@@ -102,6 +140,15 @@ def register_marketplace_order_routes(merch_bp, *, seller_active_fn, attach_canc
                     reference_id=order.id,
                     details=f'product:{product.id}',
                 )
+                if product.seller_id:
+                    db.session.add(SellerNotification(
+                        seller_id=product.seller_id,
+                        notification_type='new_purchase',
+                        title='New Physical Order',
+                        message=f'{current_user.username} placed a physical order for {product.name}',
+                        related_id=order.id,
+                        related_type='order'
+                    ))
                 db.session.commit()
                 flash('Physical order placed. Awaiting delivery confirmation.', 'success')
                 return redirect(url_for('merch.my_orders'))
@@ -184,6 +231,22 @@ def register_marketplace_order_routes(merch_bp, *, seller_active_fn, attach_canc
         """User's purchased orders."""
         HistoryService.archive_due_items(user_id=current_user.id)
         now = utc_now()
+        did_auto_cancel = False
+        pending_auto_cancel = MerchOrder.query.filter_by(
+            user_id=current_user.id,
+            product_type='physical',
+            status='pending'
+        ).filter(MerchOrder.delivery_eta.is_(None)).all()
+        for pending_order in pending_auto_cancel:
+            if auto_cancel_overdue_physical_order(
+                pending_order,
+                now,
+                eta_set_deadline_days=eta_set_deadline_days,
+            ):
+                did_auto_cancel = True
+        if did_auto_cancel:
+            db.session.commit()
+
         filter_type = (request.args.get('type') or '').strip().lower()
         page = request.args.get('page', 1, type=int)
         orders_page = MerchOrder.query.filter_by(user_id=current_user.id)\
@@ -227,6 +290,10 @@ def register_marketplace_order_routes(merch_bp, *, seller_active_fn, attach_canc
 
         if order.status != 'pending':
             flash('Order is already resolved', 'error')
+            return redirect(url_for('merch.my_orders'))
+
+        if not order.delivery_eta:
+            flash('Seller must set delivery ETA before you can confirm arrival.', 'error')
             return redirect(url_for('merch.my_orders'))
 
         product = order.product
