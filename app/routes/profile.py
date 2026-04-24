@@ -37,7 +37,7 @@ def index():
             user=current_user,
             seller_rating=cached.get('seller_rating'),
             notif_count=cached.get('notif_count'),
-            latest_notifications=latest_notifications[:5],
+            latest_notifications=cached.get('latest_notifications', []),
             sales_unread_count=cached.get('sales_unread_count'),
             chat_unread_count=cached.get('chat_unread_count'),
             seller_request_summary=cached.get('seller_request_summary'),
@@ -126,6 +126,7 @@ def index():
     cache.set(cache_key, {
         'seller_rating': seller_rating,
         'notif_count': notif_count,
+        'latest_notifications': latest_notifications[:5],
         'sales_unread_count': sales_unread_count,
         'chat_unread_count': chat_unread_count,
         'seller_request_summary': seller_request_summary
