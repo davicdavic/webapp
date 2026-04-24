@@ -106,7 +106,7 @@ def index():
         'sales_unread_count': sales_unread_count,
         'chat_unread_count': chat_unread_count,
         'seller_request_summary': seller_request_summary
-    }, timeout=20)
+    }, timeout=90)
     return render_template(
         'profile/index.html',
         user=current_user,

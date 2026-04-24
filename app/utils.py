@@ -190,9 +190,35 @@ def save_uploaded_file_any(file, subfolder='', allowed_exts=None):
     if not file or not file.filename:
         return None
     ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
-    if allowed_exts is not None and ext not in allowed_exts:
+    normalized_allowed = {str(item).lower() for item in (allowed_exts or set())} if allowed_exts is not None else None
+    if normalized_allowed is not None and ext not in normalized_allowed:
         return None
-    return save_uploaded_file(file, subfolder)
+
+    cloudinary_folder = current_app.config.get('CLOUDINARY_UPLOAD_FOLDER') or 'retroquest'
+    remote_url = CloudinaryService.upload(file, folder=f'{cloudinary_folder}/{subfolder or "misc"}', resource_type='raw')
+    if remote_url:
+        return remote_url
+
+    filename = secure_filename(file.filename)
+    if not filename:
+        return None
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')[:-3]
+    name, ext_with_dot = os.path.splitext(filename)
+    filename = f"{name}_{timestamp}{ext_with_dot}"
+
+    upload_folder = current_app.config.get('UPLOAD_FOLDER') or os.path.join(current_app.static_folder, 'uploads')
+    if not os.path.isabs(upload_folder):
+        upload_folder = os.path.join(current_app.root_path, upload_folder)
+    if subfolder:
+        upload_folder = os.path.join(upload_folder, subfolder)
+    os.makedirs(upload_folder, exist_ok=True)
+
+    filepath = os.path.join(upload_folder, filename)
+    file.save(filepath)
+
+    if subfolder:
+        return f"uploads/{subfolder}/{filename}"
+    return f"uploads/{filename}"
 
 
 def get_current_user():

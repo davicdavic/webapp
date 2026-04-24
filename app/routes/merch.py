@@ -19,7 +19,8 @@ from app.services.wallet_service import WalletService
 from app.route_modules.marketplace_chat import register_marketplace_chat_routes
 from app.route_modules.marketplace_orders import register_marketplace_order_routes
 from app.utils import save_uploaded_file, save_uploaded_image_optimized
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, and_
+from sqlalchemy.orm import joinedload
 from app.validators import ValidationError
 
 merch_bp = Blueprint('merch', __name__)
@@ -265,7 +266,16 @@ def index():
     page = request.args.get('page', 1, type=int)
     per_page = 12
     
-    query = Product.query.filter_by(is_active=True)
+    seller_active_filter = or_(
+        Product.seller_id.is_(None),
+        User.role == 'admin',
+        and_(User.is_seller.is_(True), User.seller_expires_at.isnot(None), User.seller_expires_at >= utc_now())
+    )
+
+    query = Product.query.outerjoin(User, User.id == Product.seller_id)\
+        .options(joinedload(Product.seller))\
+        .filter(Product.is_active.is_(True))\
+        .filter(seller_active_filter)
     query = _apply_store_filters(query, search=search, seller_search=seller_search, product_type=product_type)
     
     # Sorting
@@ -274,13 +284,13 @@ def index():
     elif sort == 'price_high':
         query = query.order_by(Product.price.desc())
     elif sort == 'popular':
-        query = query.outerjoin(MerchOrder).group_by(Product.id).order_by(db.func.count(MerchOrder.id).desc())
+        query = query.outerjoin(MerchOrder).group_by(Product.id).order_by(db.func.count(MerchOrder.id).desc(), Product.created_at.desc())
     else:
         query = query.order_by(Product.created_at.desc())
     
     # Paginate
     products_page = query.paginate(page=page, per_page=per_page, error_out=False)
-    products = [p for p in products_page.items if (p.seller_id is None) or _seller_active(p.seller)]
+    products = products_page.items
 
     seller_ids = {p.seller_id for p in products if p.seller_id}
     rating_map = {}
@@ -320,28 +330,31 @@ def api_products():
     # Enforce limits
     page = max(1, page)
     
-    query = Product.query.filter_by(is_active=True)
+    seller_active_filter = or_(
+        Product.seller_id.is_(None),
+        User.role == 'admin',
+        and_(User.is_seller.is_(True), User.seller_expires_at.isnot(None), User.seller_expires_at >= utc_now())
+    )
+
+    query = Product.query.outerjoin(User, User.id == Product.seller_id)\
+        .options(joinedload(Product.seller))\
+        .filter(Product.is_active.is_(True))\
+        .filter(seller_active_filter)
     query = _apply_store_filters(query, search=search, seller_search=seller_search, product_type=product_type)
-    
-    # Get all matching products first for filtering active sellers
-    all_products = query.all()
-    products = [p for p in all_products if (p.seller_id is None) or _seller_active(p.seller)]
-    
+
     # Sorting
     if sort == 'price_low':
-        products.sort(key=lambda p: p.price)
+        query = query.order_by(Product.price.asc(), Product.created_at.desc())
     elif sort == 'price_high':
-        products.sort(key=lambda p: p.price, reverse=True)
+        query = query.order_by(Product.price.desc(), Product.created_at.desc())
     elif sort == 'popular':
-        products.sort(key=lambda p: p.orders.count(), reverse=True)
+        query = query.outerjoin(MerchOrder).group_by(Product.id).order_by(func.count(MerchOrder.id).desc(), Product.created_at.desc())
     else:
-        products.sort(key=lambda p: p.created_at or datetime.min, reverse=True)
-    
-    # Pagination
-    total = len(products)
-    start = (page - 1) * limit
-    end = start + limit
-    paginated = products[start:end]
+        query = query.order_by(Product.created_at.desc())
+
+    products_page = query.paginate(page=page, per_page=limit, error_out=False)
+    total = products_page.total
+    paginated = products_page.items
     
     product_feedbacks = _product_feedback_map([p.id for p in paginated])
 
@@ -367,8 +380,8 @@ def api_products():
         'page': page,
         'limit': limit,
         'total': total,
-        'pages': (total + limit - 1) // limit,
-        'has_next': end < total,
+        'pages': products_page.pages,
+        'has_next': products_page.has_next,
         'has_prev': page > 1
     })
 
@@ -555,12 +568,21 @@ def seller_profile(seller_id):
         db.session.rollback()
         user_rating = None
 
+    page = request.args.get('page', 1, type=int)
+    params = PaginationService.get_page_args(page, 12)
+
     try:
-        products = Product.query.filter_by(seller_id=seller_id, is_active=True)\
-            .order_by(Product.created_at.desc())\
-            .all()
+        products_page = PaginationService.paginate(
+            Product.query.options(joinedload(Product.seller))
+            .filter_by(seller_id=seller_id, is_active=True)
+            .order_by(Product.created_at.desc(), Product.id.desc()),
+            page=params.page,
+            per_page=params.per_page,
+        )
+        products = products_page.items
     except Exception:
         db.session.rollback()
+        products_page = None
         products = []
 
     product_feedbacks = _product_feedback_map([p.id for p in products])
@@ -574,7 +596,8 @@ def seller_profile(seller_id):
         total_items_sold=int(total_items_sold),
         user_rating=user_rating.rating if user_rating else None,
         products=products,
-        product_feedbacks=product_feedbacks
+        product_feedbacks=product_feedbacks,
+        products_page=products_page
     )
 
 

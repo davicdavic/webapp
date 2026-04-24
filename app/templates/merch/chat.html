@@ -63,6 +63,20 @@
                                 alt="Chat image"
                                 class="chat-image"
                             >
+                            {% elif message.message_type == 'file' and message.image_path %}
+                            <a
+                                href="{{ message.image_path|media_url }}"
+                                class="chat-file-chip"
+                                target="_blank"
+                                rel="noopener"
+                                download
+                            >
+                                <span class="chat-file-icon">FILE</span>
+                                <span class="chat-file-meta">
+                                    <strong>{{ message.image_path.split('?', 1)[0].rsplit('/', 1)[-1] }}</strong>
+                                    <small>Open attachment</small>
+                                </span>
+                            </a>
                             {% endif %}
                             {% if message.content %}
                             <p class="chat-text">{{ message.content }}</p>
@@ -95,12 +109,22 @@
                 novalidate
             >
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <div class="chat-preview hidden" id="imagePreview"></div>
+                <div class="chat-preview hidden" id="attachmentPreview"></div>
                 <div class="chat-composer-row">
                     <label class="chat-tool-btn" for="imageInput" title="Send image">
                         IMG
                     </label>
                     <input type="file" id="imageInput" name="image" accept="image/*" class="chat-hidden-input">
+                    <label class="chat-tool-btn" for="fileInput" title="Send file">
+                        FILE
+                    </label>
+                    <input
+                        type="file"
+                        id="fileInput"
+                        name="attachment"
+                        accept=".pdf,.txt,.rtf,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.zip,.rar,.7z,.mp3,.wav,.m4a,.mp4,.mov,.webm"
+                        class="chat-hidden-input"
+                    >
                     <textarea
                         name="message"
                         id="messageInput"
@@ -128,7 +152,8 @@
 .chat-shell {
     display: grid;
     grid-template-columns: 280px minmax(0, 1fr);
-    min-height: calc(100vh - 180px);
+    height: min(820px, calc(100dvh - 150px));
+    min-height: 620px;
     background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(236,241,252,0.95));
     box-shadow: 0 6px 0 rgba(63, 88, 138, 0.12);
     overflow: hidden;
@@ -194,6 +219,7 @@
     display: grid;
     grid-template-rows: auto 1fr auto;
     min-width: 0;
+    min-height: 0;
 }
 
 .chat-topbar {
@@ -231,6 +257,7 @@
 .chat-board {
     padding: 18px;
     overflow-y: auto;
+    min-height: 0;
     background:
         linear-gradient(transparent 23px, rgba(93, 132, 214, 0.035) 24px),
         linear-gradient(90deg, transparent 23px, rgba(93, 132, 214, 0.025) 24px),
@@ -239,6 +266,8 @@
     display: flex;
     flex-direction: column;
     gap: 14px;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
 }
 
 .chat-load-older {
@@ -333,6 +362,51 @@
     border: 2px solid rgba(63, 88, 138, 0.16);
     margin-bottom: 10px;
     cursor: zoom-in;
+}
+
+.chat-file-chip {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: min(100%, 320px);
+    text-decoration: none;
+    color: inherit;
+    border: 2px solid rgba(63, 88, 138, 0.16);
+    background: rgba(255,255,255,0.75);
+    padding: 10px 12px;
+    margin-bottom: 10px;
+}
+
+.chat-file-icon {
+    flex: 0 0 auto;
+    min-width: 48px;
+    height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid var(--px-border);
+    background: linear-gradient(180deg, #f4f7ff, #dfe8fb);
+    color: var(--px-blue);
+    font-size: 0.64rem;
+    font-weight: 700;
+}
+
+.chat-file-meta {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.chat-file-meta strong,
+.chat-file-meta small {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.chat-file-meta small {
+    color: var(--px-text-muted);
 }
 
 .chat-meta {
@@ -442,6 +516,10 @@
     padding: 10px;
     border: 2px solid rgba(93, 132, 214, 0.16);
     background: rgba(93, 132, 214, 0.06);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
 }
 
 .chat-preview img {
@@ -451,9 +529,25 @@
     border: 2px solid var(--px-border);
 }
 
+.chat-preview-file {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.chat-preview-file-name {
+    font-size: 0.76rem;
+    font-weight: 700;
+    color: var(--px-text);
+    max-width: min(100%, 260px);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .chat-preview-remove {
     display: inline-block;
-    margin-left: 12px;
     color: #a13f33;
     cursor: pointer;
     font-weight: 700;
@@ -465,7 +559,7 @@
 
 .chat-composer-row {
     display: grid;
-    grid-template-columns: auto 1fr auto;
+    grid-template-columns: auto auto 1fr auto;
     gap: 10px;
     align-items: end;
 }
@@ -514,7 +608,8 @@
 @media (max-width: 900px) {
     .chat-shell {
         grid-template-columns: 1fr;
-        min-height: calc(100vh - 140px);
+        height: calc(100dvh - 118px);
+        min-height: 560px;
     }
 
     .chat-sidebar {
@@ -541,7 +636,7 @@
     }
 
     .chat-composer-row {
-        grid-template-columns: 46px 1fr 74px;
+        grid-template-columns: 42px 46px 1fr 74px;
     }
 
     .chat-send-btn {
@@ -551,6 +646,11 @@
 }
 
 @media (max-width: 480px) {
+    .chat-shell {
+        height: calc(100dvh - 104px);
+        min-height: 500px;
+    }
+
     .chat-back-btn,
     .chat-send-btn,
     .chat-tool-btn {
@@ -570,6 +670,17 @@
     .chat-sidebar {
         padding-left: 10px;
         padding-right: 10px;
+    }
+
+    .chat-composer-row {
+        grid-template-columns: 40px 44px 1fr 68px;
+        gap: 8px;
+    }
+
+    .chat-file-icon {
+        min-width: 42px;
+        height: 36px;
+        font-size: 0.54rem;
     }
 }
 </style>

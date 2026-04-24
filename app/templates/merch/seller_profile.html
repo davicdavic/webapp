@@ -171,6 +171,17 @@
                 </article>
                 {% endfor %}
             </div>
+            {% if products_page and products_page.pages > 1 %}
+            <div class="px-pagination seller-products-pagination px-mt-md">
+                {% if products_page.has_prev %}
+                <a href="{{ url_for('merch.seller_profile', seller_id=seller.id, page=products_page.prev_num) }}" class="px-btn px-btn-secondary" data-turbo-preload="true">Previous</a>
+                {% endif %}
+                <span class="px-pagination-info">Page {{ products_page.page }} of {{ products_page.pages }}</span>
+                {% if products_page.has_next %}
+                <a href="{{ url_for('merch.seller_profile', seller_id=seller.id, page=products_page.next_num) }}" class="px-btn px-btn-secondary" data-turbo-preload="true">Next</a>
+                {% endif %}
+            </div>
+            {% endif %}
             {% else %}
             <p class="px-text-muted">No active products from this seller.</p>
             {% endif %}
@@ -404,7 +415,9 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
+    object-position: center;
     display: block;
+    background: linear-gradient(180deg, #eef3ff, #dce4f5);
 }
 
 .seller-product-image-fallback {
@@ -426,12 +439,12 @@
 }
 
 .seller-product-body {
-    padding: 12px;
+    padding: 11px;
 }
 
 .seller-product-body h3 {
     margin: 0 0 8px;
-    font-size: 0.72rem;
+    font-size: 0.62rem;
     line-height: 1.5;
     font-family: 'Press Start 2P', cursive;
 }
@@ -439,8 +452,8 @@
 .seller-product-body p {
     margin: 0 0 10px;
     color: var(--px-text-muted);
-    font-size: 0.84rem;
-    line-height: 1.45;
+    font-size: 0.76rem;
+    line-height: 1.35;
 }
 
 .seller-product-meta {
@@ -452,7 +465,7 @@
 
 .seller-product-chip {
     padding: 4px 7px;
-    font-size: 0.66rem;
+    font-size: 0.6rem;
     color: var(--px-cyan-dark);
     background: rgba(93, 132, 214, 0.07);
     border: 1px solid rgba(93, 132, 214, 0.14);
@@ -482,7 +495,15 @@
 .seller-product-price {
     color: var(--px-cyan-dark);
     font-family: 'Press Start 2P', cursive;
-    font-size: 0.72rem;
+    font-size: 0.62rem;
+}
+
+.seller-products-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
 }
 
 @media (max-width: 960px) {
@@ -499,8 +520,7 @@
         justify-content: flex-start;
     }
 
-    .seller-stat-grid,
-    .seller-products-grid {
+    .seller-stat-grid {
         grid-template-columns: 1fr;
     }
 
@@ -509,8 +529,8 @@
     .seller-side-btn,
     .seller-product-footer .px-btn {
         width: 100%;
-        padding: 12px 14px;
-        font-size: 0.52rem;
+        padding: 9px 10px;
+        font-size: 0.46rem;
     }
 
     .seller-product-footer {
@@ -548,6 +568,11 @@
         flex-direction: column;
     }
 
+    .seller-products-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+    }
+
     .seller-hero-card {
         grid-template-columns: 1fr;
         justify-items: center;
@@ -559,6 +584,52 @@
     .seller-hero-actions {
         width: 100%;
     }
+
+    .seller-hero-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+    }
+
+    .seller-product-image-wrap {
+        aspect-ratio: 1 / 1;
+    }
+
+    .seller-product-body {
+        padding: 9px;
+    }
+
+    .seller-product-body h3 {
+        font-size: 0.48rem;
+        min-height: 2.8em;
+        margin-bottom: 6px;
+    }
+
+    .seller-product-body p {
+        font-size: 0.64rem;
+        margin-bottom: 8px;
+    }
+
+    .seller-product-meta {
+        gap: 4px;
+        margin-bottom: 8px;
+    }
+
+    .seller-product-chip {
+        font-size: 0.52rem;
+        padding: 3px 5px;
+    }
+
+    .seller-product-price {
+        font-size: 0.54rem;
+    }
+
+    .seller-product-type {
+        top: 8px;
+        left: 8px;
+        padding: 3px 7px;
+        font-size: 0.5rem;
+    }
 }
 
 @media (max-width: 480px) {
@@ -567,8 +638,8 @@
     .seller-side-btn,
     .seller-product-footer .px-btn {
         min-height: 36px;
-        padding: 9px 10px;
-        font-size: 0.48rem;
+        padding: 8px 8px;
+        font-size: 0.42rem;
     }
 
     .seller-product-actions .px-btn {
@@ -578,6 +649,23 @@
 
     .seller-products-count {
         font-size: 0.68rem;
+    }
+
+    .seller-products-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+    }
+
+    .seller-product-body {
+        padding: 8px;
+    }
+
+    .seller-product-body h3 {
+        font-size: 0.42rem;
+    }
+
+    .seller-product-body p {
+        font-size: 0.6rem;
     }
 }
 </style>

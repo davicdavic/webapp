@@ -51,6 +51,34 @@
         return `/static/uploads/${normalized}`;
     }
 
+    function getAttachmentName(message) {
+        if (message.attachment_name) return String(message.attachment_name);
+        const imagePath = message.image_path || '';
+        if (!imagePath) return 'attachment';
+        const cleanPath = String(imagePath).split('?')[0].replace(/\/+$/, '');
+        const parts = cleanPath.split('/');
+        return parts[parts.length - 1] || 'attachment';
+    }
+
+    function buildAttachmentMarkup(message) {
+        if (!message.image_path) return '';
+        if (message.message_type === 'image') {
+            return `<img src="${normalizeImageUrl(message.image_path)}" alt="Chat image" class="chat-image">`;
+        }
+        if (message.message_type === 'file') {
+            return `
+                <a href="${normalizeImageUrl(message.image_path)}" class="chat-file-chip" target="_blank" rel="noopener" download>
+                    <span class="chat-file-icon">FILE</span>
+                    <span class="chat-file-meta">
+                        <strong>${escapeHtml(getAttachmentName(message))}</strong>
+                        <small>Open attachment</small>
+                    </span>
+                </a>
+            `;
+        }
+        return '';
+    }
+
     function createPendingId() {
         return `pending-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
     }
@@ -85,7 +113,8 @@
         const loadOlderIndicator = document.getElementById('chatLoadOlder');
         const chatForm = document.getElementById('chatForm');
         const imageInput = document.getElementById('imageInput');
-        const imagePreview = document.getElementById('imagePreview');
+        const fileInput = document.getElementById('fileInput');
+        const attachmentPreview = document.getElementById('attachmentPreview');
         const messageInput = document.getElementById('messageInput');
         const liveStatus = document.getElementById('chatLiveStatus');
         const typingIndicator = document.getElementById('chatTypingIndicator');
@@ -114,9 +143,7 @@
 
         function buildMessageMarkup(message, extraClass) {
             const ownClass = message.sender_id === currentUserId ? 'is-own' : 'is-other';
-            const imageHtml = message.image_path
-                ? `<img src="${normalizeImageUrl(message.image_path)}" alt="Chat image" class="chat-image">`
-                : '';
+            const attachmentHtml = buildAttachmentMarkup(message);
             const textHtml = message.content ? `<p class="chat-text">${escapeHtml(message.content)}</p>` : '';
             const retryHtml = extraClass === 'is-failed'
                 ? '<button type="button" class="chat-retry-btn" data-chat-retry="true">Retry</button>'
@@ -124,7 +151,7 @@
             return `
                 <article class="chat-bubble ${ownClass} ${extraClass || ''}" data-message-id="${message.id || ''}" data-pending-id="${message.pending_id || ''}">
                     <div class="chat-bubble-inner">
-                        ${imageHtml}
+                        ${attachmentHtml}
                         ${textHtml}
                     </div>
                     <div class="chat-meta">
@@ -267,13 +294,7 @@
             const bubbleInner = document.createElement('div');
             bubbleInner.className = 'chat-bubble-inner';
 
-            if (message.image_path) {
-                const img = document.createElement('img');
-                img.src = normalizeImageUrl(message.image_path);
-                img.alt = 'Chat image';
-                img.className = 'chat-image';
-                bubbleInner.appendChild(img);
-            }
+            bubbleInner.innerHTML = buildAttachmentMarkup(message);
 
             if (message.content) {
                 const p = document.createElement('p');
@@ -310,13 +331,15 @@
             return chatMessages.querySelector(`[data-pending-id="${pendingId}"]`);
         }
 
-        function addPendingMessage({ content, imagePreviewUrl, formData }) {
+        function addPendingMessage({ content, previewUrl, attachmentType, attachmentName, formData }) {
             const pendingMessage = {
                 pending_id: createPendingId(),
                 id: '',
                 sender_id: currentUserId,
                 content: content || '',
-                image_path: imagePreviewUrl || '',
+                image_path: previewUrl || '',
+                attachment_name: attachmentName || '',
+                message_type: attachmentType || 'text',
                 created_at: new Date().toISOString(),
                 meta_label: 'Sending...',
                 failed: false,
@@ -504,31 +527,67 @@
             }
         }
 
-        function previewSelectedImage(file) {
-            if (!imagePreview) return;
+        function clearAttachmentPreview() {
+            if (!attachmentPreview) return;
+            attachmentPreview.innerHTML = '';
+            attachmentPreview.classList.add('hidden');
+        }
+
+        function previewSelectedAttachment(file, kind) {
+            if (!attachmentPreview) return;
             if (!file) {
-                imagePreview.innerHTML = '';
-                imagePreview.classList.add('hidden');
+                clearAttachmentPreview();
                 return;
             }
 
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                imagePreview.innerHTML = `<img src="${e.target.result}" alt="Preview"><span class="chat-preview-remove" id="removeChatImage">Remove</span>`;
-                imagePreview.classList.remove('hidden');
-                const removeBtn = document.getElementById('removeChatImage');
-                if (removeBtn) {
-                    removeBtn.addEventListener('click', function() {
-                        if (imageInput) imageInput.value = '';
-                        previewSelectedImage(null);
-                    });
-                }
-            };
-            reader.readAsDataURL(file);
+            if (kind === 'image') {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    attachmentPreview.innerHTML = `<img src="${e.target.result}" alt="Preview"><span class="chat-preview-remove" id="removeChatAttachment">Remove</span>`;
+                    attachmentPreview.classList.remove('hidden');
+                    const removeBtn = document.getElementById('removeChatAttachment');
+                    if (removeBtn) {
+                        removeBtn.addEventListener('click', function() {
+                            if (imageInput) imageInput.value = '';
+                            clearAttachmentPreview();
+                        });
+                    }
+                };
+                reader.readAsDataURL(file);
+                return;
+            }
+
+            attachmentPreview.innerHTML = `
+                <div class="chat-preview-file">
+                    <span class="chat-file-icon">FILE</span>
+                    <span class="chat-preview-file-name">${escapeHtml(file.name || 'attachment')}</span>
+                </div>
+                <span class="chat-preview-remove" id="removeChatAttachment">Remove</span>
+            `;
+            attachmentPreview.classList.remove('hidden');
+            const removeBtn = document.getElementById('removeChatAttachment');
+            if (removeBtn) {
+                removeBtn.addEventListener('click', function() {
+                    if (fileInput) fileInput.value = '';
+                    clearAttachmentPreview();
+                });
+            }
         }
 
         imageInput?.addEventListener('change', function() {
-            previewSelectedImage(this.files && this.files[0] ? this.files[0] : null);
+            const selectedFile = this.files && this.files[0] ? this.files[0] : null;
+            if (selectedFile && fileInput) {
+                fileInput.value = '';
+            }
+            previewSelectedAttachment(selectedFile, 'image');
+        });
+
+        fileInput?.addEventListener('change', function() {
+            const selectedFile = this.files && this.files[0] ? this.files[0] : null;
+            if (selectedFile && imageInput) {
+                imageInput.value = '';
+            }
+            previewSelectedAttachment(selectedFile, 'file');
         });
 
         if (messageInput) {
@@ -570,8 +629,11 @@
             const formData = new FormData(chatForm);
             const messageText = (formData.get('message') || '').toString().trim();
             const imageFile = formData.get('image');
+            const attachmentFile = formData.get('attachment');
+            const hasImage = Boolean(imageFile && imageFile.name);
+            const hasAttachment = Boolean(attachmentFile && attachmentFile.name);
 
-            if (!messageText && !(imageFile && imageFile.name)) {
+            if (!messageText && !hasImage && !hasAttachment) {
                 return;
             }
 
@@ -582,11 +644,15 @@
                     sendButton.textContent = 'Sending...';
                 }
                 if (liveStatus) liveStatus.textContent = 'Sending...';
-                const previewUrl = imageFile && imageFile.name ? URL.createObjectURL(imageFile) : '';
                 const requestFormData = new FormData(chatForm);
+                const previewUrl = hasImage
+                    ? URL.createObjectURL(imageFile)
+                    : (hasAttachment ? URL.createObjectURL(attachmentFile) : '');
                 const pendingId = addPendingMessage({
                     content: messageText,
-                    imagePreviewUrl: previewUrl,
+                    previewUrl,
+                    attachmentType: hasImage ? 'image' : (hasAttachment ? 'file' : 'text'),
+                    attachmentName: hasAttachment ? attachmentFile.name : '',
                     formData: requestFormData
                 });
 
@@ -595,7 +661,7 @@
                     messageInput.style.height = '46px';
                     messageInput.focus();
                 }
-                previewSelectedImage(null);
+                clearAttachmentPreview();
                 if (typingSent) {
                     typingSent = false;
                     sendTypingState(false);

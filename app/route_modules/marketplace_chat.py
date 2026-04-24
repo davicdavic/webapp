@@ -3,8 +3,6 @@ Marketplace chat and seller notification routes.
 """
 from __future__ import annotations
 
-from datetime import datetime
-
 from flask import jsonify, redirect, render_template, request, url_for, flash
 from flask_login import current_user, login_required
 
@@ -12,10 +10,16 @@ from app.datetime_utils import utc_now
 from app.extensions import cache, db
 from app.models import SellerChatConversation, SellerChatMessage, SellerNotification, User
 from app.services.pagination_service import PaginationService
-from app.utils import save_uploaded_image_optimized
+from app.utils import save_uploaded_file_any, save_uploaded_image_optimized
 
 
 def register_marketplace_chat_routes(merch_bp):
+    chat_file_extensions = {
+        'pdf', 'txt', 'rtf', 'doc', 'docx', 'xls', 'xlsx', 'csv',
+        'ppt', 'pptx', 'zip', 'rar', '7z', 'mp3', 'wav', 'm4a',
+        'mp4', 'mov', 'webm'
+    }
+
     def is_ajax_request() -> bool:
         return (
             request.headers.get('X-Requested-With') == 'XMLHttpRequest'
@@ -24,6 +28,26 @@ def register_marketplace_chat_routes(merch_bp):
 
     def typing_cache_key(conversation_id: int, user_id: int) -> str:
         return f'seller_chat_typing:{conversation_id}:{user_id}'
+
+    def build_attachment_name(stored_path: str | None) -> str:
+        if not stored_path:
+            return ''
+        clean_path = str(stored_path).split('?', 1)[0].rstrip('/')
+        leaf = clean_path.rsplit('/', 1)[-1] if '/' in clean_path else clean_path
+        return leaf or 'attachment'
+
+    def serialize_message(message: SellerChatMessage) -> dict:
+        return {
+            'id': message.id,
+            'sender_id': message.sender_id,
+            'sender_name': message.sender.username if message.sender else '',
+            'message_type': message.message_type,
+            'content': message.content,
+            'image_path': message.image_path,
+            'attachment_name': build_attachment_name(message.image_path) if message.message_type == 'file' else '',
+            'created_at': message.created_at.isoformat() if message.created_at else None,
+            'is_read': message.is_read,
+        }
 
     @merch_bp.route('/seller/<int:seller_id>/chat')
     @login_required
@@ -134,11 +158,12 @@ def register_marketplace_chat_routes(merch_bp):
 
         message_text = request.form.get('message', '').strip()
         image = request.files.get('image')
+        attachment = request.files.get('attachment')
 
-        if not message_text and not (image and image.filename):
+        if not message_text and not (image and image.filename) and not (attachment and attachment.filename):
             if is_ajax_request():
-                return jsonify({'ok': False, 'error': 'Message or image is required'}), 400
-            flash('Message or image is required', 'error')
+                return jsonify({'ok': False, 'error': 'Message, image, or file is required'}), 400
+            flash('Message, image, or file is required', 'error')
             return redirect(url_for('merch.chat_conversation', conversation_id=conversation.id))
 
         image_path = None
@@ -147,6 +172,22 @@ def register_marketplace_chat_routes(merch_bp):
             try:
                 image_path = save_uploaded_image_optimized(image, 'chat')
                 message_type = 'image'
+            except ValueError as exc:
+                if is_ajax_request():
+                    return jsonify({'ok': False, 'error': str(exc)}), 400
+                flash(str(exc), 'error')
+                return redirect(url_for('merch.chat_conversation', conversation_id=conversation.id))
+        elif attachment and attachment.filename:
+            try:
+                image_path = save_uploaded_file_any(attachment, 'chat', chat_file_extensions)
+                if not image_path:
+                    allowed_list = ', '.join(sorted(chat_file_extensions))
+                    error_message = f'Please upload a supported file: {allowed_list}'
+                    if is_ajax_request():
+                        return jsonify({'ok': False, 'error': error_message}), 400
+                    flash(error_message, 'error')
+                    return redirect(url_for('merch.chat_conversation', conversation_id=conversation.id))
+                message_type = 'file'
             except ValueError as exc:
                 if is_ajax_request():
                     return jsonify({'ok': False, 'error': str(exc)}), 400
@@ -184,15 +225,7 @@ def register_marketplace_chat_routes(merch_bp):
         if is_ajax_request():
             return jsonify({
                 'ok': True,
-                'message': {
-                    'id': message.id,
-                    'sender_id': message.sender_id,
-                    'sender_name': current_user.username,
-                    'message_type': message.message_type,
-                    'content': message.content,
-                    'image_path': message.image_path,
-                    'created_at': message.created_at.isoformat() if message.created_at else None
-                }
+                'message': serialize_message(message)
             })
 
         return redirect(url_for('merch.chat_conversation', conversation_id=conversation.id))
@@ -237,16 +270,7 @@ def register_marketplace_chat_routes(merch_bp):
             'has_next': paginated_messages.has_next,
             'other_user_typing': other_user_typing,
             'unread_marker_id': unread_marker_id,
-            'messages': [{
-                'id': m.id,
-                'sender_id': m.sender_id,
-                'sender_name': m.sender.username if m.sender else '',
-                'message_type': m.message_type,
-                'content': m.content,
-                'image_path': m.image_path,
-                'created_at': m.created_at.isoformat() if m.created_at else None,
-                'is_read': m.is_read
-            } for m in messages]
+            'messages': [serialize_message(m) for m in messages]
         })
 
     @merch_bp.route('/chat/<int:conversation_id>/typing', methods=['POST'])
